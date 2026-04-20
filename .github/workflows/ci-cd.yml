@@ -70,19 +70,23 @@ jobs:
 
     permissions:
       contents: read
+      id-token: write   # Required for Workload Identity Federation
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── Auth via Service Account JSON key ─────────────────
-      # Add GCP_SA_KEY secret: GCP Console → IAM → Service Accounts
-      # → your SA → Keys → Add Key → JSON → copy contents
+      # ── Keyless auth via Workload Identity Federation ──────
+      # Run scripts/setup-gha.ps1 once to provision WIF in GCP,
+      # then add WIF_PROVIDER, WIF_SERVICE_ACCOUNT, GCP_PROJECT_ID
+      # as GitHub secrets (repo Settings → Secrets → Actions).
       - name: Authenticate to Google Cloud
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          token_format: access_token
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
 
       # ── Docker setup with registry-level layer cache ───────
       - name: Set up Docker Buildx
@@ -92,8 +96,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGION }}-docker.pkg.dev
-          username: _json_key
-          password: ${{ secrets.GCP_SA_KEY }}
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
 
       # ── Build & push (uses Artifact Registry as cache) ────
       - name: Build & push image
