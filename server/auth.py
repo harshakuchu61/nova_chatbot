@@ -4,7 +4,7 @@ Authentication blueprint: Google/GitHub OAuth via Flask-Dance + email/password.
 import os
 from datetime import datetime
 
-from flask import Blueprint, request, redirect, jsonify
+from flask import Blueprint, request, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_dance.contrib.google import make_google_blueprint, google
 from flask_dance.contrib.github import make_github_blueprint, github

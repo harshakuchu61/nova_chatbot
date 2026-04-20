@@ -65,10 +65,11 @@ app.config.update(
 CORS(app)
 
 # ── Extensions ────────────────────────────────────────────────────
-from .extensions import db, login_manager, bcrypt, limiter
-from .models import User, UserSettings, Conversation, Message, LoginEvent
-from .auth import auth_bp, google_bp, github_bp
-from .crypto import encrypt_api_key, decrypt_api_key
+# These imports must come after app config (Flask-Dance needs the app object).
+from .extensions import db, login_manager, bcrypt, limiter  # noqa: E402
+from .models import User, UserSettings, Conversation, Message, LoginEvent  # noqa: E402
+from .auth import auth_bp, google_bp, github_bp  # noqa: E402
+from .crypto import encrypt_api_key, decrypt_api_key  # noqa: E402
 
 db.init_app(app)
 login_manager.init_app(app)
@@ -77,9 +78,11 @@ limiter.init_app(app)
 
 login_manager.login_view = None  # use our custom unauthorized handler
 
+
 @login_manager.user_loader
 def load_user(user_id: str):
     return db.session.get(User, user_id)
+
 
 @login_manager.unauthorized_handler
 def unauthorized():
@@ -87,10 +90,12 @@ def unauthorized():
         return jsonify({'error': 'Authentication required.', 'login': '/login.html'}), 401
     return redirect('/login.html')
 
+
 # ── Blueprints ────────────────────────────────────────────────────
 app.register_blueprint(google_bp, url_prefix='/google')
 app.register_blueprint(github_bp, url_prefix='/github')
 app.register_blueprint(auth_bp)
+
 
 # ── Database initialisation (with retry for Cloud SQL cold-start) ────
 def _init_db(max_attempts: int = 5, delay: float = 3.0) -> None:
@@ -251,7 +256,7 @@ def build_user_content_for_api(user_text: str, attachments: list, model: str):
         return combined, None
     parts = [{"type": "text", "text": combined}]
     for a in image_atts:
-        parts.append({"type": "image_url", "image_url": {"url": f"data:{a.get('mime','image/png')};base64,{a.get('data','')}"}})
+        parts.append({"type": "image_url", "image_url": {"url": f"data:{a.get('mime', 'image/png')};base64,{a.get('data', '')}"}})
     return parts, None
 
 
