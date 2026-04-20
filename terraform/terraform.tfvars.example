@@ -1,0 +1,24 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored — never commit it.
+
+project_id = "nova-chatbot-493921"
+region     = "us-central1"
+
+github_owner = "harshakuchu61"
+github_repo  = "nova_chatbot"
+
+# Cloud SQL tier
+# db-f1-micro = ~$7/month  (dev / personal)
+# db-g1-small = ~$25/month (small prod)
+db_tier = "db-f1-micro"
+
+# Optional — provide your OpenAI key to store it in Secret Manager
+# openai_api_key = "sk-..."
+
+# Optional — Google OAuth (from console.cloud.google.com/apis/credentials)
+# google_client_id     = "....apps.googleusercontent.com"
+# google_client_secret = "GOCSPX-..."
+
+# Optional — GitHub OAuth (from github.com/settings/developers)
+# github_client_id     = "Ov23li..."
+# github_client_secret = "..."
