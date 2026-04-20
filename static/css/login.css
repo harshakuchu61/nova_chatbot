@@ -1,0 +1,252 @@
+/* =========================================================
+   Nova — Login Page
+   Matches the main app's CVS Health white/red design system.
+   ========================================================= */
+
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #F5F5F5;
+    color: #1A1A1A;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+a {
+    color: #CC0000;
+    text-decoration: none;
+}
+a:hover { text-decoration: underline; }
+
+/* ── Page layout ──────────────────────────────────────── */
+.login-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    background:
+        radial-gradient(ellipse 70% 50% at 10% 0%, rgba(204,0,0,.06) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 90% 100%, rgba(204,0,0,.05) 0%, transparent 60%),
+        #F5F5F5;
+}
+
+/* ── Card ─────────────────────────────────────────────── */
+.login-card {
+    background: #FFFFFF;
+    border: 1px solid #E8EAED;
+    border-radius: 20px;
+    padding: 48px 44px;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.10);
+}
+
+/* ── Logo ─────────────────────────────────────────────── */
+.login-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 28px;
+}
+
+.login-logo-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    background: rgba(204,0,0,.08);
+    border-radius: 12px;
+}
+
+.login-logo-text {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #1A1A1A;
+    letter-spacing: -0.5px;
+}
+
+/* ── Headings ─────────────────────────────────────────── */
+.login-title {
+    font-size: 1.45rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 6px;
+    color: #1A1A1A;
+}
+
+.login-subtitle {
+    text-align: center;
+    font-size: 0.875rem;
+    color: #54595F;
+    margin-bottom: 28px;
+}
+
+/* ── Error banner ─────────────────────────────────────── */
+.error-banner {
+    background: #FFF0F0;
+    border: 1px solid rgba(204,0,0,.25);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.875rem;
+    color: #A30000;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+/* ── OAuth buttons ────────────────────────────────────── */
+.oauth-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 0;
+}
+
+.oauth-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 11px 16px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 150ms ease, box-shadow 150ms ease;
+    text-decoration: none;
+}
+
+.oauth-google {
+    background: #FFFFFF;
+    border: 1.5px solid #CED3D9;
+    color: #1A1A1A;
+}
+.oauth-google:hover {
+    background: #F7F8F9;
+    border-color: #B0B8C4;
+    text-decoration: none;
+}
+
+.oauth-github {
+    background: #24292E;
+    border: 1.5px solid #24292E;
+    color: #FFFFFF;
+}
+.oauth-github:hover {
+    background: #1A1E22;
+    text-decoration: none;
+}
+
+/* ── Divider ──────────────────────────────────────────── */
+.login-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0;
+    color: #8A9099;
+    font-size: 0.8rem;
+}
+
+.login-divider::before,
+.login-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #E8EAED;
+}
+
+/* ── Form ─────────────────────────────────────────────── */
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-field label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #54595F;
+}
+
+.form-field input {
+    padding: 11px 14px;
+    border: 1.5px solid #E8EAED;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    color: #1A1A1A;
+    background: #FFFFFF;
+    outline: none;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.form-field input:focus {
+    border-color: #CC0000;
+    box-shadow: 0 0 0 3px rgba(204,0,0,.1);
+}
+
+.form-field input::placeholder {
+    color: #B0B8C4;
+}
+
+/* ── Submit button ────────────────────────────────────── */
+.btn-submit {
+    padding: 12px;
+    background: linear-gradient(135deg, #CC0000, #A30000);
+    border: none;
+    border-radius: 10px;
+    color: #FFFFFF;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 150ms ease, transform 100ms ease;
+    margin-top: 4px;
+}
+
+.btn-submit:hover { opacity: .9; }
+.btn-submit:active { transform: scale(.98); }
+.btn-submit:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Toggle ───────────────────────────────────────────── */
+.login-toggle {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 0.875rem;
+    color: #54595F;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
+    color: #CC0000;
+    cursor: pointer;
+    font-weight: 500;
+    margin-left: 4px;
+}
+.btn-link:hover { text-decoration: underline; }
+
+/* ── Responsive ───────────────────────────────────────── */
+@media (max-width: 480px) {
+    .login-card {
+        padding: 36px 24px;
+    }
+}

@@ -1,0 +1,39 @@
+# Secrets — never bake into the image
+server/.env
+.env
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pycache
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Deployment scripts (not needed inside the container)
+scripts/
+
+# Cursor / IDE
+.cursor/
+*.plan.md
+implementation_plan.md
+
+# CI/CD config (not needed inside the container)
+cloudbuild.yaml
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+server/error.log
+
+# OS
+.DS_Store
+Thumbs.db
