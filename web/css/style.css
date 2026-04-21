@@ -54,6 +54,52 @@
     --transition-slow: 400ms ease;
 }
 
+/* ---------- Dark Theme ---------- */
+body.theme-dark {
+    --bg-primary:       #1A1A1A;
+    --bg-secondary:     #242424;
+    --bg-surface:       rgba(255, 255, 255, 0.05);
+    --bg-surface-hover: rgba(255, 255, 255, 0.09);
+    --bg-glass:         rgba(255, 255, 255, 0.04);
+    --bg-glass-strong:  rgba(255, 255, 255, 0.08);
+    --text-primary:     #F0F0F0;
+    --text-secondary:   #A8ADB5;
+    --text-tertiary:    #6B7280;
+    --border-subtle:    #2E2E2E;
+    --border-medium:    #3A3A3A;
+    --shadow-sm:   0 1px 4px rgba(0, 0, 0, 0.3);
+    --shadow-md:   0 4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-lg:   0 8px 32px rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+}
+
+body.theme-dark .settings-drawer,
+body.theme-dark .sidebar {
+    background: var(--bg-secondary);
+}
+
+body.theme-dark input,
+body.theme-dark textarea,
+body.theme-dark select {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    border-color: var(--border-medium);
+}
+
+body.theme-dark .field-select,
+body.theme-dark .field-input,
+body.theme-dark .field-textarea {
+    background: #2A2A2A;
+    color: var(--text-primary);
+    border-color: var(--border-medium);
+}
+
+/* ---------- Font Sizes ---------- */
+/* Font scaling is handled via JS — applyFontSize() sets html font-size
+   so all rem-based values scale automatically. Body classes are kept for
+   any CSS that needs to target a specific size tier. */
+html { font-size: 16px; }          /* default, overridden by applyFontSize */
+
 /* ---------- Reset & Base ---------- */
 *,
 *::before,
@@ -287,35 +333,6 @@ a:hover {
     margin-bottom: 36px;
 }
 
-.suggestion-chips {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    max-width: 560px;
-    width: 100%;
-}
-
-.chip {
-    padding: 14px 16px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-medium);
-    border-radius: var(--radius-md);
-    color: var(--text-secondary);
-    font-family: 'Inter', sans-serif;
-    font-size: 0.825rem;
-    text-align: left;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    line-height: 1.4;
-}
-
-.chip:hover {
-    border-color: var(--accent-start);
-    color: var(--accent-start);
-    background: rgba(204, 0, 0, 0.04);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-sm);
-}
 
 /* ---------- Message Bubbles ---------- */
 .message {
@@ -679,6 +696,16 @@ a:hover {
     background: rgba(204, 0, 0, 0.04);
 }
 
+.msg-action-btn.is-speaking {
+    color: #c00;
+    border-color: #c00;
+    background: rgba(204, 0, 0, 0.07);
+}
+
+.msg-action-btn.is-speaking:hover {
+    background: rgba(204, 0, 0, 0.13);
+}
+
 /* Model selector row */
 .input-row-secondary {
     display: flex;
@@ -924,9 +951,6 @@ a:hover {
         display: flex;
     }
 
-    .suggestion-chips {
-        grid-template-columns: 1fr;
-    }
 
     .welcome-screen h2 {
         font-size: 1.5rem;
@@ -992,31 +1016,60 @@ a:hover {
     font-weight: 500;
 }
 
-.conv-item-delete {
+.conv-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
     flex-shrink: 0;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.conv-item:hover .conv-item-actions {
+    opacity: 1;
+}
+
+.conv-item-btn {
     width: 22px;
     height: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
+    border-radius: 5px;
     border: none;
     background: transparent;
     color: var(--text-tertiary);
     cursor: pointer;
-    opacity: 0;
-    transition: opacity var(--transition-fast), background var(--transition-fast);
-    font-size: 14px;
-    line-height: 1;
+    transition: background var(--transition-fast), color var(--transition-fast);
+    padding: 0;
 }
 
-.conv-item:hover .conv-item-delete {
-    opacity: 1;
+.conv-item-rename:hover {
+    background: rgba(0, 0, 0, .07);
+    color: var(--text-primary);
 }
 
 .conv-item-delete:hover {
     background: rgba(204, 0, 0, .1);
     color: var(--accent-start);
+}
+
+.conv-rename-input {
+    flex: 1;
+    font-size: 0.82rem;
+    font-family: inherit;
+    color: var(--text-primary);
+    background: var(--bg-surface);
+    border: 1px solid var(--accent-start);
+    border-radius: 4px;
+    padding: 1px 5px;
+    outline: none;
+    width: 0;
+    min-width: 0;
+}
+
+body.theme-dark .conv-item-rename:hover {
+    background: rgba(255, 255, 255, .08);
 }
 
 .conv-list-empty {
@@ -1100,6 +1153,7 @@ a:hover {
     backdrop-filter: blur(2px);
     animation: fadeIn 0.2s ease;
 }
+.settings-overlay[hidden] { display: none !important; }
 
 .settings-drawer {
     position: fixed;
@@ -1112,10 +1166,11 @@ a:hover {
     background: var(--bg-primary);
     border-left: 1px solid var(--border-subtle);
     box-shadow: var(--shadow-lg);
-    display: flex;
     flex-direction: column;
     animation: slideInRight 0.28s ease;
 }
+.settings-drawer[hidden] { display: none !important; }
+.settings-drawer:not([hidden]) { display: flex; }
 
 @keyframes slideInRight {
     from { transform: translateX(100%); opacity: 0; }

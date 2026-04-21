@@ -46,13 +46,13 @@ jobs:
 
       - name: Lint — flake8
         run: |
-          flake8 server/ \
+          flake8 backend/ \
             --max-line-length=120 \
             --extend-ignore=E501,W503 \
-            --exclude=server/__pycache__,server/migrations
+            --exclude=backend/__pycache__,backend/migrations
 
       - name: Security audit — pip-audit
-        run: pip-audit -r server/requirements.txt
+        run: pip-audit -r backend/requirements.txt
         # Warn on known CVEs but don't block the pipeline
         continue-on-error: true
 

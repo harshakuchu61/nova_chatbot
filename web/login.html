@@ -102,6 +102,11 @@
 
     var isRegister   = false;
 
+    // If already authenticated, go to the main app (fixes back-button loop)
+    fetch('/auth/me').then(function(r) {
+        if (r.ok) window.location.replace('/');
+    }).catch(function() { /* not logged in — stay */ });
+
     // Check for error in query string (e.g. OAuth failure)
     var params = new URLSearchParams(window.location.search);
     if (params.get('error')) {

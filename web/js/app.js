@@ -7,7 +7,7 @@
     'use strict';
 
     // ─── API base (same-origin on Cloud Run / port 5000) ──────────
-    var DEFAULT_FLASK_API = 'http://127.0.0.1:5000';
+    var DEFAULT_FLASK_API = '';
 
     function getApiBase() {
         try {
@@ -314,6 +314,8 @@
     // ─── Voice input ──────────────────────────────────────────────
     function stopVoiceOutput() {
         if (window.speechSynthesis) window.speechSynthesis.cancel();
+        resetSpeakBtn(_activeSpeakBtn);
+        _activeSpeakBtn = null;
     }
 
     function stripMarkdownForSpeech(md) {
@@ -328,11 +330,40 @@
             .replace(/\s+/g, ' ').trim();
     }
 
-    function speakText(text) {
+    var _activeSpeakBtn = null;
+
+    function resetSpeakBtn(btn) {
+        if (!btn) return;
+        btn.textContent = 'Read aloud';
+        btn.classList.remove('is-speaking');
+    }
+
+    function speakText(text, btn) {
         if (!window.speechSynthesis) return;
-        window.speechSynthesis.cancel();
+
+        // If this button is already speaking — stop
+        if (_activeSpeakBtn === btn && window.speechSynthesis.speaking) {
+            window.speechSynthesis.cancel();
+            resetSpeakBtn(btn);
+            _activeSpeakBtn = null;
+            return;
+        }
+
+        // Cancel any other in-progress speech
+        if (window.speechSynthesis.speaking) {
+            window.speechSynthesis.cancel();
+            resetSpeakBtn(_activeSpeakBtn);
+        }
+
+        _activeSpeakBtn = btn;
+        if (btn) { btn.textContent = 'Stop'; btn.classList.add('is-speaking'); }
+
         var u = new SpeechSynthesisUtterance(stripMarkdownForSpeech(text));
         u.rate = 1;
+        u.onend = u.onerror = function () {
+            resetSpeakBtn(_activeSpeakBtn);
+            _activeSpeakBtn = null;
+        };
         window.speechSynthesis.speak(u);
     }
 
@@ -409,7 +440,7 @@
                 setTimeout(() => { b.textContent = orig; }, 1500);
             }).catch(() => {});
         });
-        actions.querySelector('[data-speak]').addEventListener('click', () => speakText(plainText));
+        actions.querySelector('[data-speak]').addEventListener('click', function () { speakText(plainText, this); });
     }
 
     function appendMessage(role, content) {
@@ -489,19 +520,73 @@
             item.setAttribute('data-id', c.id);
             item.innerHTML = `
                 <div class="conv-item-title" title="${escapeHtml(c.title)}">${escapeHtml(c.title)}</div>
-                <button class="conv-item-delete" data-del="${escapeHtml(c.id)}" title="Delete" aria-label="Delete conversation">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>`;
+                <div class="conv-item-actions">
+                    <button class="conv-item-btn conv-item-rename" data-rename="${escapeHtml(c.id)}" title="Rename" aria-label="Rename conversation">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="conv-item-btn conv-item-delete" data-del="${escapeHtml(c.id)}" title="Delete" aria-label="Delete conversation">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>`;
+
             item.addEventListener('click', e => {
-                if (e.target.closest('[data-del]')) return;
+                if (e.target.closest('.conv-item-actions')) return;
                 loadConversation(c.id);
             });
+
+            item.querySelector('[data-rename]').addEventListener('click', e => {
+                e.stopPropagation();
+                startRenameConversation(c.id, item);
+            });
+
             item.querySelector('[data-del]').addEventListener('click', e => {
                 e.stopPropagation();
                 deleteConversation(c.id, item);
             });
+
             convListEl.appendChild(item);
         });
+    }
+
+    async function startRenameConversation(convId, item) {
+        const titleEl = item.querySelector('.conv-item-title');
+        if (!titleEl || item.querySelector('.conv-rename-input')) return;
+
+        const currentTitle = titleEl.textContent;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentTitle;
+        input.className = 'conv-rename-input';
+        input.maxLength = 200;
+
+        titleEl.replaceWith(input);
+        input.select();
+
+        async function commitRename() {
+            const newTitle = input.value.trim();
+            if (!newTitle || newTitle === currentTitle) {
+                input.replaceWith(titleEl);
+                return;
+            }
+            try {
+                const r = await fetch(apiUrl('/api/conversations/' + convId), {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: newTitle }),
+                });
+                if (r.ok) {
+                    titleEl.textContent = newTitle;
+                    titleEl.title = newTitle;
+                }
+            } catch (e) { /* ignore, revert */ }
+            input.replaceWith(titleEl);
+        }
+
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); commitRename(); }
+            if (e.key === 'Escape') { input.replaceWith(titleEl); }
+        });
+        input.addEventListener('blur', commitRename);
     }
 
     async function loadConversation(id) {
@@ -557,20 +642,7 @@
                 <div class="welcome-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#CC0000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
                 <h2>Hello! I'm Nova</h2>
                 <p>Your personal AI assistant. I can help you with questions, writing, brainstorming, coding, and much more.</p>
-                <div class="suggestion-chips">
-                    <button class="chip" data-message="Explain quantum computing in simple terms">💡 Explain quantum computing</button>
-                    <button class="chip" data-message="Help me write a professional email to my boss about requesting time off">✉️ Write a professional email</button>
-                    <button class="chip" data-message="Give me 5 creative business ideas for 2025">🚀 Creative business ideas</button>
-                    <button class="chip" data-message="Write a Python function to find the longest palindrome in a string">💻 Code a palindrome finder</button>
-                </div>
             </div>`;
-        document.querySelectorAll('.chip').forEach(chip => {
-            chip.addEventListener('click', () => {
-                messageInput.value = chip.getAttribute('data-message');
-                handleInputChange();
-                handleSend();
-            });
-        });
     }
 
     // ─── New Chat ─────────────────────────────────────────────────
@@ -774,9 +846,11 @@
             el = document.getElementById('setting-api-key');      if (el) el.value = '';  // never pre-fill
             el = document.getElementById('setting-display-name'); if (el && currentUser) el.value = currentUser.display_name || '';
 
-            // API key placeholder
+            // API key placeholder + remove button
             var apiKeyInput = document.getElementById('setting-api-key');
-            if (apiKeyInput) apiKeyInput.placeholder = s.has_api_key ? '●●●●●●●●●●●● (set)' : 'sk-…';
+            if (apiKeyInput) apiKeyInput.placeholder = s.has_api_key ? '●●●●●●●● (key saved)' : 'sk-…';
+            var removeRow = document.getElementById('api-key-remove-row');
+            if (removeRow) removeRow.hidden = !s.has_api_key;
 
             // Server key note
             var note = document.getElementById('server-key-note');
@@ -795,15 +869,12 @@
                         avatarLg.textContent = avatarInitials(currentUser.display_name, currentUser.email);
                     }
                 }
-                // Password change only for email accounts
-                var pwNote = document.getElementById('pw-only-for-email-note');
+                // Password change only for email accounts — hide the whole section for OAuth users
                 var changePwSection = document.getElementById('change-password-section');
-                if (currentUser.provider !== 'email') {
-                    if (pwNote) pwNote.hidden = false;
-                    ['setting-current-pw','setting-new-pw','setting-confirm-pw','change-pw-btn'].forEach(id => {
-                        var el2 = document.getElementById(id);
-                        if (el2) el2.hidden = true;
-                    });
+                if (changePwSection) {
+                    if (currentUser.provider !== 'email') {
+                        changePwSection.innerHTML = '<p class="panel-desc" style="color:var(--text-secondary)">Password change is only available for email/password accounts. You\'re signed in via <strong>' + (currentUser.provider || 'OAuth') + '</strong>.</p>';
+                    }
                 }
             }
 
@@ -823,9 +894,7 @@
         el = document.getElementById('setting-stream');       if (el) payload.stream_responses = el.checked;
         el = document.getElementById('setting-system-prompt');if (el) payload.system_prompt = el.value;
 
-        var apiKeyInput = document.getElementById('setting-api-key');
-        if (apiKeyInput && apiKeyInput.value.trim()) payload.openai_api_key = apiKeyInput.value.trim();
-        else if (apiKeyInput && apiKeyInput.value === '') payload.openai_api_key = '';
+        // API key is saved separately via its own Save button — skip here
 
         try {
             settingsSaveBtn.disabled = true;
@@ -862,6 +931,9 @@
     }
 
     function applyFontSize(size) {
+        // Scale the root font size so all rem-based measurements adjust proportionally
+        var scale = { small: '87.5%', medium: '100%', large: '112.5%' };
+        document.documentElement.style.fontSize = scale[size] || '100%';
         document.body.classList.remove('font-small', 'font-medium', 'font-large');
         if (size) document.body.classList.add('font-' + size);
     }
@@ -910,32 +982,101 @@
         } catch (e) { status.textContent = 'Network error.'; status.className = 'field-hint error'; }
     }
 
+    async function saveApiKey() {
+        var apiKeyInput = document.getElementById('setting-api-key');
+        var status = document.getElementById('api-key-status');
+        if (!apiKeyInput || !status) return;
+        var key = apiKeyInput.value.trim();
+        if (!key) { status.textContent = 'Enter a key first.'; status.className = 'field-hint error'; return; }
+        if (!key.startsWith('sk-')) { status.textContent = 'OpenAI keys start with sk-'; status.className = 'field-hint error'; return; }
+        status.textContent = 'Saving…'; status.className = 'field-hint';
+        try {
+            const r = await fetch(apiUrl('/api/settings'), {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ openai_api_key: key }),
+            });
+            if (r.ok) {
+                status.textContent = '✓ Key saved successfully.';
+                status.className = 'field-hint success';
+                apiKeyInput.value = '';
+                apiKeyInput.placeholder = '●●●●●●●● (key saved)';
+                var removeRow = document.getElementById('api-key-remove-row');
+                if (removeRow) removeRow.hidden = false;
+                await refreshModelList();
+                setTimeout(() => { status.textContent = ''; }, 3000);
+            } else {
+                var j = await readJsonBody(r);
+                status.textContent = '✗ ' + ((j && j.error) || 'Failed to save.');
+                status.className = 'field-hint error';
+            }
+        } catch (e) { status.textContent = 'Network error.'; status.className = 'field-hint error'; }
+    }
+
+    async function removeApiKey() {
+        var status = document.getElementById('api-key-status');
+        if (!confirm('Remove your saved API key?')) return;
+        try {
+            const r = await fetch(apiUrl('/api/settings'), {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ openai_api_key: '' }),
+            });
+            if (r.ok) {
+                if (status) { status.textContent = 'Key removed.'; status.className = 'field-hint'; setTimeout(() => { status.textContent = ''; }, 2000); }
+                var apiKeyInput = document.getElementById('setting-api-key');
+                if (apiKeyInput) { apiKeyInput.value = ''; apiKeyInput.placeholder = 'sk-…'; }
+                var removeRow = document.getElementById('api-key-remove-row');
+                if (removeRow) removeRow.hidden = true;
+            }
+        } catch (e) { if (status) { status.textContent = 'Network error.'; status.className = 'field-hint error'; } }
+    }
+
     // ─── Account actions ──────────────────────────────────────────
     async function handleLogout() {
         try {
             await fetch(apiUrl('/auth/logout'), { method: 'POST' });
         } catch (e) { /* ignore */ }
-        window.location.href = '/login.html';
+        window.location.replace('/login.html');
     }
 
     async function handleDeleteAccount() {
-        if (!confirm('Permanently delete your account and ALL data? This cannot be undone.')) return;
+        if (!confirm('Permanently delete your account and ALL data?\n\nThis cannot be undone.')) return;
+        var btn = document.getElementById('delete-account-btn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
         try {
             const r = await fetch(apiUrl('/api/account'), { method: 'DELETE' });
-            if (r.ok) window.location.href = '/login.html';
-        } catch (e) { alert('Failed to delete account.'); }
+            if (r.ok) {
+                window.location.replace('/login.html');
+            } else {
+                alert('Failed to delete account. Please try again.');
+                if (btn) { btn.disabled = false; btn.textContent = 'Delete My Account'; }
+            }
+        } catch (e) {
+            alert('Network error. Please try again.');
+            if (btn) { btn.disabled = false; btn.textContent = 'Delete My Account'; }
+        }
     }
 
     async function handleDeleteAllChats() {
-        if (!confirm('Delete ALL your conversations? This cannot be undone.')) return;
+        if (!confirm('Delete ALL your conversations?\n\nThis cannot be undone.')) return;
+        var btn = document.getElementById('delete-chats-btn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
         try {
             const r = await fetch(apiUrl('/api/conversations'), { method: 'DELETE' });
             if (r.ok) {
                 currentConversationId = null;
-                if (convListEl) convListEl.innerHTML = '<div class="conv-list-empty">No conversations yet</div>';
+                if (convListEl) convListEl.innerHTML = '<p class="field-hint" style="padding:12px">No conversations yet.</p>';
                 resetChatUI();
+                closeSettings();
+            } else {
+                alert('Failed to delete conversations. Please try again.');
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            alert('Network error. Please try again.');
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Delete All Conversations'; }
+        }
     }
 
     function handleExportData() {
@@ -1076,15 +1217,6 @@
                 sidebar.classList.remove('open');
         });
 
-        // Suggestion chips
-        document.querySelectorAll('.chip').forEach(chip => {
-            chip.addEventListener('click', () => {
-                messageInput.value = chip.getAttribute('data-message');
-                handleInputChange();
-                handleSend();
-            });
-        });
-
         // Settings open/close
         if (settingsOpenBtn) settingsOpenBtn.addEventListener('click', openSettings);
         if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', closeSettings);
@@ -1095,12 +1227,38 @@
             btn.addEventListener('click', () => switchSettingsTab(btn.getAttribute('data-tab')));
         });
 
+        // Instant apply + auto-save for theme and font size
+        var themeEl = document.getElementById('setting-theme');
+        if (themeEl) themeEl.addEventListener('change', function () {
+            applyTheme(this.value);
+            fetch(apiUrl('/api/settings'), {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ theme: this.value }),
+            }).catch(function () { /* non-critical */ });
+        });
+        var fontEl = document.getElementById('setting-font-size');
+        if (fontEl) fontEl.addEventListener('change', function () {
+            applyFontSize(this.value);
+            fetch(apiUrl('/api/settings'), {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ font_size: this.value }),
+            }).catch(function () { /* non-critical */ });
+        });
+
         // Settings save
         if (settingsSaveBtn) settingsSaveBtn.addEventListener('click', saveSettings);
 
-        // API key test
+        // API key test / save / remove
         var apiKeyTestBtn = document.getElementById('api-key-test-btn');
         if (apiKeyTestBtn) apiKeyTestBtn.addEventListener('click', testApiKey);
+
+        var apiKeySaveBtn = document.getElementById('api-key-save-btn');
+        if (apiKeySaveBtn) apiKeySaveBtn.addEventListener('click', saveApiKey);
+
+        var apiKeyRemoveBtn = document.getElementById('api-key-remove-btn');
+        if (apiKeyRemoveBtn) apiKeyRemoveBtn.addEventListener('click', removeApiKey);
 
         // Security events
         var changePwBtn = document.getElementById('change-pw-btn');

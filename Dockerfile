@@ -4,7 +4,7 @@
 #
 #  Local build & run:
 #    docker build -t nova .
-#    docker run -p 5000:8080 --env-file server/.env nova
+#    docker run -p 5000:8080 --env-file .env nova
 # =============================================================
 
 FROM python:3.12-slim AS base
@@ -17,12 +17,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies first (layer-cached separately from source code)
-COPY server/requirements.txt ./requirements.txt
+COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY server/ ./server/
-COPY static/ ./static/
+COPY backend/ ./backend/
+COPY web/ ./web/
 
 # ── Runtime ────────────────────────────────────────────────────
 ENV PYTHONUNBUFFERED=1
@@ -45,4 +45,4 @@ CMD ["gunicorn", \
      "--preload", \
      "--access-logfile", "-", \
      "--error-logfile", "-", \
-     "server.app:app"]
+     "backend.app:app"]

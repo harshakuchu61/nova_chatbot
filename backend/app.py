@@ -24,11 +24,14 @@ from dotenv import load_dotenv
 from openai import OpenAI, APIError, AuthenticationError, RateLimitError
 
 # ── Load .env before anything else ───────────────────────────────
+# Checks backend/.env first, then falls back to repo-root .env
 _env_path = Path(__file__).resolve().parent / '.env'
+if not _env_path.exists():
+    _env_path = Path(__file__).resolve().parent.parent / '.env'
 load_dotenv(_env_path)
 
 # ── App factory ───────────────────────────────────────────────────
-app = Flask(__name__, static_folder='../static', static_url_path='')
+app = Flask(__name__, static_folder='../web', static_url_path='')
 
 # Trust the X-Forwarded-Proto / X-Forwarded-Host headers from Cloud Run
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -45,15 +48,57 @@ if not _secret:
 _insecure_transport = bool(os.getenv('OAUTHLIB_INSECURE_TRANSPORT'))
 _db_url = os.getenv('DATABASE_URL', 'sqlite:///nova.db')
 
+# ── Cloud SQL Python Connector setup ──────────────────────────────
+# Parses DATABASE_URL to detect Cloud SQL Unix-socket URLs and replaces
+# the engine creator with the Cloud SQL Python Connector (no sidecar needed).
+_engine_kwargs: dict = {
+    'pool_pre_ping': True,
+    'pool_recycle': 300,
+}
+_sqlalchemy_uri = _db_url
+
+_cloudsql_conn_name = None
+if '/cloudsql/' in _db_url:
+    # Extract instance connection name from host param
+    import re as _re
+    _m = _re.search(r'host=/cloudsql/([^&\s]+)', _db_url)
+    if _m:
+        _cloudsql_conn_name = _m.group(1).strip()
+
+if _cloudsql_conn_name:
+    import urllib.parse as _urlparse
+    _parsed = _urlparse.urlparse(_db_url)
+    _qs = _urlparse.parse_qs(_parsed.query)
+    _db_user = _parsed.username or ''
+    _db_pass = _parsed.password or ''
+    _db_name = (_parsed.path or '/nova').lstrip('/')
+
+    try:
+        from google.cloud.sql.connector import Connector as _Connector
+        import pg8000  # noqa: F401
+
+        _connector = _Connector()
+
+        def _getconn():
+            return _connector.connect(
+                _cloudsql_conn_name,
+                'pg8000',
+                user=_db_user,
+                password=_db_pass,
+                db=_db_name,
+            )
+
+        _sqlalchemy_uri = 'postgresql+pg8000://'
+        _engine_kwargs['creator'] = _getconn
+        print(f'[DB] Using Cloud SQL Python Connector for {_cloudsql_conn_name}', flush=True)
+    except ImportError:
+        print('[DB] cloud-sql-python-connector not available; falling back to Unix socket', flush=True)
+
 app.config.update(
     SECRET_KEY=_secret,
-    SQLALCHEMY_DATABASE_URI=_db_url,
+    SQLALCHEMY_DATABASE_URI=_sqlalchemy_uri,
     SQLALCHEMY_TRACK_MODIFICATIONS=False,
-    SQLALCHEMY_ENGINE_OPTIONS={
-        # Keep connections alive through Cloud SQL proxy socket idle timeouts
-        'pool_pre_ping': True,
-        'pool_recycle': 300,
-    },
+    SQLALCHEMY_ENGINE_OPTIONS=_engine_kwargs,
     REMEMBER_COOKIE_SECURE=not _insecure_transport,
     REMEMBER_COOKIE_HTTPONLY=True,
     REMEMBER_COOKIE_SAMESITE='Lax',
@@ -105,6 +150,18 @@ def _init_db(max_attempts: int = 5, delay: float = 3.0) -> None:
         try:
             with app.app_context():
                 db.create_all()
+                # Ensure the messages FK has ON DELETE CASCADE on existing DBs
+                try:
+                    db.session.execute(db.text(
+                        'ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_conversation_id_fkey;'
+                    ))
+                    db.session.execute(db.text(
+                        'ALTER TABLE messages ADD CONSTRAINT messages_conversation_id_fkey '
+                        'FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE;'
+                    ))
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
             if attempt > 1:
                 print(f'[DB] Connected on attempt {attempt}.', flush=True)
             return
@@ -291,22 +348,21 @@ def get_cached_allowed_model_ids(api_key: str):
     return ids
 
 
-_NON_CHAT_SUBSTR = (
-    "embedding", "text-embedding", "-tts", "tts-", "whisper", "dall-e",
-    "moderation", "davinci", "babbage", "realtime", "transcribe",
-    "audio-preview", "speech", "search-doc",
-)
-
-
-def is_probably_chat_completions_model(model_id: str) -> bool:
-    if not model_id or len(model_id) > 128:
-        return False
-    mid = model_id.lower()
-    if any(s in mid for s in _NON_CHAT_SUBSTR) or "turbo-instruct" in mid:
-        return False
-    if mid.startswith("ft:"):
-        return "gpt-" in mid or "o1" in mid or "o3" in mid
-    return mid.startswith(("gpt-", "o1", "o3", "o4", "chatgpt-"))
+# Curated list of stable, production-ready OpenAI chat models.
+# Order here controls display order in the UI.
+_CURATED_MODELS: list[tuple[str, str]] = [
+    ("gpt-4o-mini",         "GPT-4o mini — fast & economical"),
+    ("gpt-4o",              "GPT-4o — flagship"),
+    ("gpt-4-turbo",         "GPT-4 Turbo"),
+    ("gpt-4",               "GPT-4"),
+    ("gpt-3.5-turbo",       "GPT-3.5 Turbo"),
+    ("o4-mini",             "o4-mini — fast reasoning"),
+    ("o3-mini",             "o3-mini — efficient reasoning"),
+    ("o3",                  "o3 — powerful reasoning"),
+    ("o1-mini",             "o1-mini — fast reasoning"),
+    ("o1",                  "o1 — advanced reasoning"),
+]
+_CURATED_IDS: frozenset[str] = frozenset(m[0] for m in _CURATED_MODELS)
 
 
 def _iter_models_list(client: OpenAI):
@@ -315,19 +371,55 @@ def _iter_models_list(client: OpenAI):
     yield from (data if data is not None else page)
 
 
+_NON_CHAT_SUBSTR = (
+    "embedding", "text-embedding", "-tts", "tts-", "whisper", "dall-e",
+    "moderation", "davinci", "babbage", "realtime", "transcribe",
+    "audio-preview", "speech", "search-doc", "search-preview",
+    "computer-use", "instruct",
+)
+
+
+def _is_unknown_chat_model(mid: str) -> bool:
+    """True for models not in the curated list but likely chat-capable."""
+    if not mid or len(mid) > 128 or mid in _CURATED_IDS:
+        return False
+    m = mid.lower()
+    if any(s in m for s in _NON_CHAT_SUBSTR):
+        return False
+    # Dated snapshots of known models (e.g. gpt-4o-2024-11-20) — skip
+    import re as _re
+    if _re.search(r'-\d{4}-\d{2}-\d{2}$', m) or _re.search(r'-\d{4}\d{2}\d{2}$', m):
+        return False
+    if m.startswith("ft:"):
+        return False
+    return m.startswith(("gpt-", "o1", "o3", "o4", "chatgpt-"))
+
+
 def fetch_remote_model_choices(api_key: str) -> list[dict]:
+    """Curated models first (with friendly labels), then any future models
+    that OpenAI releases and are chat-capable but not yet in the curated list."""
     client = OpenAI(api_key=api_key)
-    seen, ids = set(), []
+    available_curated: set[str] = set()
+    new_models: list[str] = []
+
     for m in _iter_models_list(client):
         mid = getattr(m, "id", None) or str(m)
-        if not mid or mid in seen or not is_probably_chat_completions_model(mid):
+        if not mid:
             continue
-        seen.add(mid)
-        ids.append(mid)
+        if mid in _CURATED_IDS:
+            available_curated.add(mid)
+        elif _is_unknown_chat_model(mid):
+            new_models.append(mid)
 
-    preferred = ("gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo")
-    ids.sort(key=lambda mid: (preferred.index(mid) if mid in preferred else 50, mid.lower()))
-    return [{"id": i, "label": i} for i in ids]
+    result = [
+        {"id": mid, "label": label}
+        for mid, label in _CURATED_MODELS
+        if mid in available_curated
+    ]
+    # Append any brand-new models at the bottom (auto-discovery)
+    new_models.sort()
+    result += [{"id": mid, "label": mid} for mid in new_models]
+    return result
 
 
 def pick_default_for_remote_list(choices: list[dict]) -> str:
@@ -355,13 +447,12 @@ def warm_model_cache_if_needed(api_key: str) -> None:
 def resolve_chat_model(requested, api_key: str) -> str:
     req = requested.strip() if isinstance(requested, str) else ""
     allowed = get_cached_allowed_model_ids(api_key)
-    if allowed and req in allowed:
-        return req
-    if req in CHAT_MODEL_IDS:
-        return req
+    # Prefer explicitly requested model if it's in the curated list and accessible
+    if req in _CURATED_IDS:
+        if not allowed or req in allowed:
+            return req
     if allowed:
-        d = pick_default_for_remote_list([{"id": x} for x in sorted(allowed)])
-        return d if d in allowed else next(iter(sorted(allowed)))
+        return pick_default_for_remote_list([{"id": x} for x in allowed])
     return effective_default_model()
 
 
@@ -711,6 +802,21 @@ def get_conversation(conv_id: str):
     })
 
 
+@app.route('/api/conversations/<conv_id>', methods=['PATCH'])
+@login_required
+def rename_conversation(conv_id: str):
+    data = request.get_json(silent=True) or {}
+    title = (data.get('title') or '').strip()[:200]
+    if not title:
+        return jsonify({'error': 'Title cannot be empty.'}), 400
+    conv = Conversation.query.filter_by(id=conv_id, user_id=current_user.id).first()
+    if not conv:
+        abort(404)
+    conv.title = title
+    db.session.commit()
+    return jsonify({'ok': True, 'title': conv.title})
+
+
 @app.route('/api/conversations/<conv_id>', methods=['DELETE'])
 @login_required
 def delete_conversation(conv_id: str):
@@ -724,7 +830,8 @@ def delete_conversation(conv_id: str):
 @app.route('/api/conversations', methods=['DELETE'])
 @login_required
 def delete_all_conversations():
-    Conversation.query.filter_by(user_id=current_user.id).delete()
+    # DB-level ON DELETE CASCADE removes messages automatically
+    Conversation.query.filter_by(user_id=current_user.id).delete(synchronize_session=False)
     db.session.commit()
     return jsonify({'ok': True})
 
@@ -734,22 +841,25 @@ def delete_all_conversations():
 @app.route('/api/security/events', methods=['GET'])
 @login_required
 def security_events():
-    events = (
-        LoginEvent.query
-        .filter_by(user_id=current_user.id)
-        .order_by(LoginEvent.timestamp.desc())
-        .limit(20)
-        .all()
-    )
-    return jsonify([
-        {
-            'ip': e.ip,
-            'user_agent': e.user_agent,
-            'timestamp': e.timestamp.isoformat(),
-            'success': e.success,
-        }
-        for e in events
-    ])
+    try:
+        events = (
+            LoginEvent.query
+            .filter_by(user_id=current_user.id)
+            .order_by(LoginEvent.timestamp.desc())
+            .limit(20)
+            .all()
+        )
+        return jsonify([
+            {
+                'ip': e.ip,
+                'user_agent': e.user_agent,
+                'timestamp': e.timestamp.isoformat(),
+                'success': e.success,
+            }
+            for e in events
+        ])
+    except Exception:
+        return jsonify([])
 
 
 # ── Data export & account management ─────────────────────────────
@@ -791,9 +901,14 @@ def export_data():
 @login_required
 def delete_account():
     from flask_login import logout_user
-    user = current_user
+    user_id = current_user.id
+    # Conversations cascade-delete their messages via DB FK;
+    # remaining user-linked tables are deleted explicitly before the user row.
+    Conversation.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+    LoginEvent.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+    UserSettings.query.filter_by(user_id=user_id).delete(synchronize_session=False)
     logout_user()
-    db.session.delete(user)
+    User.query.filter_by(id=user_id).delete(synchronize_session=False)
     db.session.commit()
     return jsonify({'ok': True})
 

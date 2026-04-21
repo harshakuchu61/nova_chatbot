@@ -30,10 +30,10 @@ Thumbs.db
 # Cursor
 .cursor/
 
-# Terraform
-terraform/.terraform/
-terraform/.terraform.lock.hcl
-terraform/terraform.tfvars
-terraform/terraform.tfstate
-terraform/terraform.tfstate.backup
-terraform/*.tfplan
+# Terraform / Infrastructure
+infra/.terraform/
+infra/.terraform.lock.hcl
+infra/terraform.tfvars
+infra/terraform.tfstate
+infra/terraform.tfstate.backup
+infra/*.tfplan

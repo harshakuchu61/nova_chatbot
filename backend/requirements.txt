@@ -12,3 +12,5 @@ gunicorn==23.0.0
 cryptography==44.0.2
 psycopg2-binary==2.9.10
 sqlalchemy==2.0.40
+cloud-sql-python-connector[pg8000]==1.16.0
+pg8000==1.31.2

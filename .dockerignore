@@ -1,5 +1,5 @@
 # Secrets — never bake into the image
-server/.env
+backend/.env
 .env
 
 # Python cache

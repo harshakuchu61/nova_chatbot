@@ -73,7 +73,7 @@ class Message(db.Model):
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     conversation_id = db.Column(
-        db.String(36), db.ForeignKey('conversations.id'),
+        db.String(36), db.ForeignKey('conversations.id', ondelete='CASCADE'),
         nullable=False, index=True,
     )
     role = db.Column(db.String(20), nullable=False)
