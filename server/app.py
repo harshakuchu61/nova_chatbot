@@ -92,8 +92,8 @@ def unauthorized():
 
 
 # ── Blueprints ────────────────────────────────────────────────────
-app.register_blueprint(google_bp, url_prefix='/google')
-app.register_blueprint(github_bp, url_prefix='/github')
+app.register_blueprint(google_bp)
+app.register_blueprint(github_bp)
 app.register_blueprint(auth_bp)
 
 

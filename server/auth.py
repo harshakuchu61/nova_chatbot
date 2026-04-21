@@ -27,12 +27,16 @@ google_bp = make_google_blueprint(
     ],
     offline=False,
     reprompt_consent=False,
+    login_url='/google/login',
+    authorized_url='/google/authorized',
 )
 
 github_bp = make_github_blueprint(
     client_id=os.getenv('GITHUB_CLIENT_ID', ''),
     client_secret=os.getenv('GITHUB_CLIENT_SECRET', ''),
     scope='user:email',
+    login_url='/github/login',
+    authorized_url='/github/authorized',
 )
 
 
