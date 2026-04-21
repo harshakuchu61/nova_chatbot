@@ -501,30 +501,6 @@ Updatable fields: `theme`, `font_size`, `default_model`, `system_prompt`, `strea
 
 **HTTPS** is enforced by Cloud Run. `ProxyFix` middleware is configured to trust the `X-Forwarded-Proto` header so Flask correctly identifies requests as HTTPS, which is required for OAuth redirects and secure cookie flags.
 
----
-
-## Troubleshooting
-
-**Login works but I'm redirected back to the login page immediately**
-The frontend API calls are failing. Open browser DevTools → Network and check that calls to `/auth/me` return 200 with a JSON body. If they return 401, the session cookie is not being set — check that `SECRET_KEY` is a fixed value (not randomly generated per restart).
-
-**Google OAuth — "invalid_client"**
-The `GOOGLE_CLIENT_ID` in Secret Manager does not match any active OAuth 2.0 client in your Google Cloud project. Re-create the client, update the secret, and redeploy.
-
-**GitHub OAuth — callback URL mismatch**
-GitHub OAuth Apps only support one callback URL. Make sure the "Authorization callback URL" in the GitHub app settings matches exactly what the app sends: `https://<your-cloud-run-url>/github/authorized`.
-
-**Database connection error on startup**
-The Cloud SQL connector needs `roles/cloudsql.client` on the service account and the instance connection name to be correct in `DATABASE_URL`. Check the startup logs in Cloud Run for `[DB]` prefixed lines.
-
-**"No chat-capable models returned" in the model selector**
-The OpenAI API key does not have access to any models in the curated list. Verify the key is valid and active. Users can supply their own key in Settings → API Keys if the server-level key is restricted.
-
-**Font size / theme not applying**
-Clear the browser cache with `Ctrl + Shift + R` (hard reload). Settings are applied on load using the saved preference from the server.
-
-**CI/CD pipeline fails with "workload_identity_provider must be specified"**
-The GitHub secret `WIF_PROVIDER` is not set or is empty. Re-run `setup-gha.ps1` and add the printed value as a repository secret.
 
 ---
 
