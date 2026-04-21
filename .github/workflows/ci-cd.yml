@@ -2,11 +2,12 @@
 #  CI/CD Pipeline — Nova Chatbot
 #
 #  ┌─ on every PR  ──► ci  (lint + security audit)
-#  └─ on push/main ──► ci → deploy (build, push, Cloud Run)
+#  └─ on push/main ──► ci → deploy (build, push, GKE rolling update)
 #
 #  Auth: Workload Identity Federation (keyless — no SA keys)
-#  Run setup-gha.ps1 once to provision the GCP side, then
+#  Run scripts/setup-gha.ps1 once to provision the GCP side, then
 #  add the three secrets shown at the bottom of that script.
+#  Run scripts/setup-gke.ps1 once to create the GKE cluster.
 # =============================================================
 
 name: CI / CD
@@ -18,10 +19,11 @@ on:
     branches: [main]
 
 env:
-  REGION:  us-central1
-  SERVICE: nova-chatbot
-  REPO:    nova-repo             # Artifact Registry repository
-  IMAGE:   nova-app
+  REGION:      us-central1
+  REPO:        nova-repo
+  IMAGE:       nova-app
+  GKE_CLUSTER: nova-cluster
+  GKE_NS:      nova
 
 # ─────────────────────────────────────────────────────────────
 jobs:
@@ -53,15 +55,13 @@ jobs:
 
       - name: Security audit — pip-audit
         run: pip-audit -r backend/requirements.txt
-        # Warn on known CVEs but don't block the pipeline
         continue-on-error: true
 
-  # ── 2. Build → Push → Deploy (main branch only) ───────────
+  # ── 2. Build → Push → Deploy to GKE (main branch only) ────
   deploy:
-    name: Build & Deploy to Cloud Run
+    name: Build & Deploy to GKE
     needs: ci
     runs-on: ubuntu-latest
-    # Only deploy when a commit lands on main (not on PRs)
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     # GitHub Environment gate — add required reviewers in repo
@@ -77,9 +77,6 @@ jobs:
         uses: actions/checkout@v4
 
       # ── Keyless auth via Workload Identity Federation ──────
-      # Run scripts/setup-gha.ps1 once to provision WIF in GCP,
-      # then add WIF_PROVIDER, WIF_SERVICE_ACCOUNT, GCP_PROJECT_ID
-      # as GitHub secrets (repo Settings → Secrets → Actions).
       - name: Authenticate to Google Cloud
         id: auth
         uses: google-github-actions/auth@v2
@@ -111,14 +108,31 @@ jobs:
           cache-from: type=registry,ref=${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:buildcache
           cache-to:   type=registry,ref=${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:buildcache,mode=max
 
-      # ── Deploy the new image to Cloud Run ─────────────────
-      - name: Deploy to Cloud Run
-        id: deploy
-        uses: google-github-actions/deploy-cloudrun@v2
+      # ── Configure kubectl ──────────────────────────────────
+      - name: Set up kubectl
+        uses: google-github-actions/get-gke-credentials@v2
         with:
-          service: ${{ env.SERVICE }}
-          region:  ${{ env.REGION }}
-          image:   ${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location:     ${{ env.REGION }}
+          project_id:   ${{ secrets.GCP_PROJECT_ID }}
 
-      - name: Print service URL
-        run: echo "Deployed → ${{ steps.deploy.outputs.url }}"
+      # ── Rolling update — zero downtime ────────────────────
+      - name: Update deployment image
+        run: |
+          IMAGE_TAG="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.sha }}"
+          kubectl set image deployment/nova-app \
+            nova-app=$IMAGE_TAG \
+            -n ${{ env.GKE_NS }}
+
+      - name: Wait for rollout to complete
+        run: |
+          kubectl rollout status deployment/nova-app \
+            -n ${{ env.GKE_NS }} \
+            --timeout=300s
+
+      - name: Print cluster info
+        run: |
+          echo "=== Pods ==="
+          kubectl get pods -n ${{ env.GKE_NS }}
+          echo "=== Ingress ==="
+          kubectl get ingress -n ${{ env.GKE_NS }}

@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nova-app
+  namespace: nova
+  labels:
+    app.kubernetes.io/name: nova
+    app.kubernetes.io/version: "1.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nova-app
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0          # zero-downtime deploys
+  template:
+    metadata:
+      labels:
+        app: nova-app
+        app.kubernetes.io/name: nova
+    spec:
+      serviceAccountName: nova-ksa
+      terminationGracePeriodSeconds: 60
+
+      containers:
+      - name: nova-app
+        # Updated by CI/CD — do not edit manually
+        image: us-central1-docker.pkg.dev/nova-chatbot-493921/nova-repo/nova-app:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+
+        env:
+        - name: PORT
+          value: "8080"
+        # Tells the app it is running in GKE (not Cloud Run)
+        - name: DEPLOYMENT_ENV
+          value: "gke"
+
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 3
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          failureThreshold: 3
+
+        lifecycle:
+          preStop:
+            exec:
+              # Allows in-flight requests to finish before pod is removed
+              command: ["/bin/sh", "-c", "sleep 5"]
+
+      # Spread pods across zones for HA
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: nova-app

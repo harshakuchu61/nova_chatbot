@@ -1,0 +1,22 @@
+# GKE Ingress — provisions a Google Cloud HTTPS Load Balancer.
+# Requires the static IP and managed cert created by setup-gke.ps1.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nova-ingress
+  namespace: nova
+  labels:
+    app.kubernetes.io/name: nova
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: nova-ip
+    networking.gke.io/managed-certificates: nova-cert
+    # Redirect plain HTTP → HTTPS
+    kubernetes.io/ingress.allow-http: "false"
+    # Use the GCE ingress class (external HTTP(S) LB)
+    kubernetes.io/ingress.class: "gce"
+spec:
+  defaultBackend:
+    service:
+      name: nova-service
+      port:
+        number: 80

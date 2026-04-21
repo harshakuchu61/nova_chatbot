@@ -96,11 +96,12 @@ $deployArgs = @(
     "--platform=managed",
     "--region=$REGION",
     "--allow-unauthenticated",
-    "--memory=512Mi",
-    "--cpu=1",
-    "--min-instances=0",
+    "--memory=1Gi",
+    "--cpu=2",
+    "--min-instances=1",
     "--max-instances=10",
-    "--timeout=120",
+    "--concurrency=40",
+    "--timeout=300",
     "--project=$PROJECT_ID"
 )
 

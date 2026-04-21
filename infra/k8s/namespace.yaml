@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nova
+  labels:
+    app.kubernetes.io/name: nova
+    app.kubernetes.io/part-of: nova-chatbot

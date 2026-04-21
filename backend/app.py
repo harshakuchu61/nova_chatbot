@@ -52,8 +52,11 @@ _db_url = os.getenv('DATABASE_URL', 'sqlite:///nova.db')
 # Parses DATABASE_URL to detect Cloud SQL Unix-socket URLs and replaces
 # the engine creator with the Cloud SQL Python Connector (no sidecar needed).
 _engine_kwargs: dict = {
-    'pool_pre_ping': True,
-    'pool_recycle': 300,
+    'pool_pre_ping': True,     # drop stale connections before using them
+    'pool_recycle': 600,       # recycle connections every 10 min
+    'pool_size': 5,            # keep 5 persistent connections ready
+    'max_overflow': 10,        # allow up to 10 extra under burst load
+    'pool_timeout': 20,        # wait up to 20s for a connection before erroring
 }
 _sqlalchemy_uri = _db_url
 
@@ -499,6 +502,11 @@ def _resolve_api_key() -> str | None:
 # ═══════════════════════════════════════════════════════════════════
 # Routes
 # ═══════════════════════════════════════════════════════════════════
+
+@app.route('/health')
+def health():
+    """Kubernetes / load-balancer liveness + readiness probe."""
+    return {'status': 'ok'}, 200
 
 @app.route('/')
 @login_required

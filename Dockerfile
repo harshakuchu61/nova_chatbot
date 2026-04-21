@@ -35,13 +35,14 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/config')" \
     || exit 1
 
-# Gunicorn: 1 worker + 8 threads is optimal for Cloud Run's single vCPU.
-# --preload shares the model cache across threads inside the worker.
+# Gunicorn: 2 workers × 4 threads on 2 vCPUs.
+# --preload shares the connection pool and model cache across threads.
 CMD ["gunicorn", \
      "--bind", "0.0.0.0:8080", \
-     "--workers", "1", \
-     "--threads", "8", \
-     "--timeout", "120", \
+     "--workers", "2", \
+     "--threads", "4", \
+     "--timeout", "300", \
+     "--keep-alive", "5", \
      "--preload", \
      "--access-logfile", "-", \
      "--error-logfile", "-", \

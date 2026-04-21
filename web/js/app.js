@@ -248,21 +248,68 @@
         return /\.(txt|md|markdown|json|csv|xml|py|js|mjs|cjs|ts|tsx|jsx|css|html|htm|yml|yaml|sh|bash|sql|log|c|h|cpp|cc|hpp|go|rs|java|kt|kts|rb|php|cs|vue|svelte|ini|cfg|toml|env|properties|gitignore|dockerfile)$/i.test(file.name || '');
     }
 
+    // Compress and resize an image to at most maxDim px on the longest side,
+    // then return it as a base64 JPEG string. Keeps GIFs as-is (no canvas support).
+    function compressImage(file, maxDim, quality) {
+        return new Promise((resolve, reject) => {
+            var url = URL.createObjectURL(file);
+            var img = new Image();
+            img.onload = function () {
+                URL.revokeObjectURL(url);
+                var w = img.naturalWidth, h = img.naturalHeight;
+                var scale = Math.min(1, maxDim / Math.max(w, h));
+                var tw = Math.round(w * scale), th = Math.round(h * scale);
+                var canvas = document.createElement('canvas');
+                canvas.width = tw; canvas.height = th;
+                var ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, tw, th);
+                var dataUrl = canvas.toDataURL('image/jpeg', quality);
+                var m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+                if (!m) { reject(new Error('Canvas compression failed.')); return; }
+                resolve({ mime: m[1], data: m[2] });
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not load image for compression.')); };
+            img.src = url;
+        });
+    }
+
     function readAttachmentFromFile(file) {
         return new Promise((resolve, reject) => {
             var okImg = ['image/png','image/jpeg','image/gif','image/webp'];
             var isImg = file.type.indexOf('image/') === 0;
             if (isImg) {
-                if (file.size > 4*1024*1024) { reject(new Error(file.name + ': image too large (max 4 MB).')); return; }
+                if (file.size > 20*1024*1024) { reject(new Error(file.name + ': image too large (max 20 MB).')); return; }
                 if (!okImg.includes(file.type)) { reject(new Error(file.name + ': use PNG, JPEG, GIF, or WebP.')); return; }
-                var reader = new FileReader();
-                reader.onload = () => {
-                    var m = /^data:([^;]+);base64,(.+)$/.exec(reader.result);
-                    if (!m) { reject(new Error('Could not read image.')); return; }
-                    resolve({ id: 'att_' + Date.now() + '_' + Math.random().toString(36).slice(2,9), kind: 'image', name: file.name, mime: m[1], data: m[2] });
-                };
-                reader.onerror = () => reject(new Error('Could not read file.'));
-                reader.readAsDataURL(file);
+
+                // GIFs can't be compressed via canvas (loses animation) — read directly
+                if (file.type === 'image/gif') {
+                    var gifReader = new FileReader();
+                    gifReader.onload = () => {
+                        var m = /^data:([^;]+);base64,(.+)$/.exec(gifReader.result);
+                        if (!m) { reject(new Error('Could not read image.')); return; }
+                        resolve({ id: 'att_' + Date.now() + '_' + Math.random().toString(36).slice(2,9), kind: 'image', name: file.name, mime: m[1], data: m[2] });
+                    };
+                    gifReader.onerror = () => reject(new Error('Could not read file.'));
+                    gifReader.readAsDataURL(file);
+                    return;
+                }
+
+                // Compress: resize to max 1024px and encode as JPEG 0.85
+                compressImage(file, 1024, 0.85)
+                    .then(function (compressed) {
+                        resolve({ id: 'att_' + Date.now() + '_' + Math.random().toString(36).slice(2,9), kind: 'image', name: file.name, mime: compressed.mime, data: compressed.data });
+                    })
+                    .catch(function () {
+                        // Compression failed — fall back to reading the original
+                        var reader = new FileReader();
+                        reader.onload = () => {
+                            var m = /^data:([^;]+);base64,(.+)$/.exec(reader.result);
+                            if (!m) { reject(new Error('Could not read image.')); return; }
+                            resolve({ id: 'att_' + Date.now() + '_' + Math.random().toString(36).slice(2,9), kind: 'image', name: file.name, mime: m[1], data: m[2] });
+                        };
+                        reader.onerror = () => reject(new Error('Could not read file.'));
+                        reader.readAsDataURL(file);
+                    });
                 return;
             }
             if (isPdfFile(file)) {
@@ -685,6 +732,11 @@
         messageInput.style.height = 'auto';
         sendBtn.disabled = true;
 
+        // Clear attachments immediately — payloadAtts already holds the copy
+        pendingAttachments = [];
+        renderAttachmentStrip();
+        handleInputChange();
+
         const typingEl = appendTypingIndicator();
         isStreaming = true;
 
@@ -719,8 +771,6 @@
                 throw new Error(errMsg);
             }
 
-            pendingAttachments = [];
-            renderAttachmentStrip();
             typingEl.remove();
 
             const assistantEl = appendMessage('assistant', '');

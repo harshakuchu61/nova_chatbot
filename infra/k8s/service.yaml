@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nova-service
+  namespace: nova
+  labels:
+    app.kubernetes.io/name: nova
+  annotations:
+    # Enable connection draining so active requests finish before pod removal
+    cloud.google.com/neg: '{"ingress": true}'
+spec:
+  type: ClusterIP
+  selector:
+    app: nova-app
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP

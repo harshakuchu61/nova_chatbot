@@ -1,0 +1,13 @@
+# Google-managed TLS certificate — GKE provisions and auto-renews it.
+# Update `domains` with your actual domain name after pointing DNS
+# to the static IP created by setup-gke.ps1.
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: nova-cert
+  namespace: nova
+spec:
+  domains:
+  # Replace with your domain (e.g. nova.yourdomain.com)
+  # Until then, access the app via the raw IP address over HTTP.
+  - nova.yourdomain.com
