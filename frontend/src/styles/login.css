@@ -130,26 +130,23 @@ a:hover { text-decoration: underline; }
 }
 
 .oauth-icon {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     border-radius: 999px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.68rem;
-    font-weight: 700;
     line-height: 1;
     flex-shrink: 0;
 }
 
 .oauth-icon-google {
     background: #FFFFFF;
-    color: #1A73E8;
     border: 1px solid #DADCE0;
 }
 
 .oauth-icon-github {
-    background: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.14);
     color: #FFFFFF;
     border: 1px solid rgba(255, 255, 255, 0.3);
 }

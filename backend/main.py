@@ -593,12 +593,13 @@ def auth_google_callback(request: Request, code: str | None = None, state: str |
             display_name=info.get("name") or info.get("email", "").split("@")[0],
             provider="google",
         )
-        db.add(LoginEventRow(user_id=user.id, ip=(request.client.host if request.client else None), user_agent=request.headers.get("user-agent"), success=True))
+        user_id = user.id
+        db.add(LoginEventRow(user_id=user_id, ip=(request.client.host if request.client else None), user_agent=request.headers.get("user-agent"), success=True))
         db.commit()
     resp = RedirectResponse("/")
     resp.set_cookie(
         SESSION_COOKIE_NAME,
-        _session_token_for(user.id),
+        _session_token_for(user_id),
         max_age=SESSION_MAX_AGE,
         httponly=True,
         samesite="lax",
@@ -676,12 +677,13 @@ def auth_github_callback(request: Request, code: str | None = None, state: str |
             display_name=user_info.get("name") or user_info.get("login") or email.split("@")[0],
             provider="github",
         )
-        db.add(LoginEventRow(user_id=user.id, ip=(request.client.host if request.client else None), user_agent=request.headers.get("user-agent"), success=True))
+        user_id = user.id
+        db.add(LoginEventRow(user_id=user_id, ip=(request.client.host if request.client else None), user_agent=request.headers.get("user-agent"), success=True))
         db.commit()
     resp = RedirectResponse("/")
     resp.set_cookie(
         SESSION_COOKIE_NAME,
-        _session_token_for(user.id),
+        _session_token_for(user_id),
         max_age=SESSION_MAX_AGE,
         httponly=True,
         samesite="lax",
