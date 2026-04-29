@@ -24,6 +24,9 @@ spec:
     spec:
       serviceAccountName: nova-ksa
       terminationGracePeriodSeconds: 60
+      volumes:
+      - name: cloudsql
+        emptyDir: {}
 
       containers:
       - name: nova-app
@@ -88,6 +91,28 @@ spec:
             exec:
               # Allows in-flight requests to finish before pod is removed
               command: ["/bin/sh", "-c", "sleep 5"]
+        volumeMounts:
+        - name: cloudsql
+          mountPath: /cloudsql
+
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.4
+        args:
+        - --structured-logs
+        - --unix-socket=/cloudsql
+        - nova-chatbot-493921:us-central1:nova-db
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "250m"
+            memory: "256Mi"
+        securityContext:
+          runAsNonRoot: true
+        volumeMounts:
+        - name: cloudsql
+          mountPath: /cloudsql
 
       # Keep placement flexible under quota pressure to avoid pending pods.
       topologySpreadConstraints:

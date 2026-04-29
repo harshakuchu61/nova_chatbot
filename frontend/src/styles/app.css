@@ -15,7 +15,7 @@
     /* Text */
     --text-primary:   #1A1A1A;
     --text-secondary: #54595F;
-    --text-tertiary:  #8A9099;
+    --text-tertiary:  #737A84;
     --text-accent:    #CC0000;
 
     /* CVS Red accent */
@@ -52,6 +52,7 @@
     --transition-fast: 150ms ease;
     --transition-base: 250ms ease;
     --transition-slow: 400ms ease;
+    --focus-ring: 0 0 0 3px rgba(204, 0, 0, 0.18);
 }
 
 /* ---------- Dark Theme ---------- */
@@ -169,6 +170,34 @@ a:hover {
     margin-bottom: 16px;
 }
 
+.sidebar-user-meta {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sidebar-user-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(204, 0, 0, 0.12);
+    color: var(--accent-start);
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar-user-line {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .logo {
     display: flex;
     align-items: center;
@@ -202,14 +231,19 @@ a:hover {
     font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: transform var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .btn-new-chat:hover {
     background: var(--accent-start);
     border-color: var(--accent-start);
     color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(163, 0, 0, 0.2);
 }
+
+.btn-new-chat:active { transform: translateY(0); }
+.btn-new-chat:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* ---------- Chat Main ---------- */
 .chat-main {
@@ -233,6 +267,16 @@ a:hover {
     border-bottom: 2px solid var(--accent-start);
 }
 
+.header-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--accent-start);
+    background: rgba(204, 0, 0, 0.08);
+    border: 1px solid rgba(204, 0, 0, 0.22);
+    border-radius: 999px;
+    padding: 2px 8px;
+}
+
 .sidebar-toggle {
     display: none;
 }
@@ -251,6 +295,8 @@ a:hover {
     background: var(--bg-surface-hover);
     color: var(--text-primary);
 }
+
+.btn-icon:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .header-title {
     display: flex;
@@ -274,13 +320,33 @@ a:hover {
     flex: 1;
 }
 
+.btn-subtle {
+    padding: 7px 11px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn-subtle:hover {
+    color: var(--accent-start);
+    border-color: var(--accent-start);
+    background: rgba(204, 0, 0, 0.04);
+}
+
+.btn-subtle:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
 /* ---------- Chat Messages ---------- */
 .chat-messages {
     flex: 1;
     overflow-y: auto;
-    padding: 24px;
+    padding: 28px 26px;
     scroll-behavior: smooth;
-    background: var(--bg-primary);
+    background: linear-gradient(180deg, #FFFFFF 0%, #FCFCFC 100%);
 }
 
 .chat-messages::-webkit-scrollbar {
@@ -338,8 +404,8 @@ a:hover {
 .message {
     display: flex;
     gap: 14px;
-    max-width: var(--max-chat-width);
-    margin: 0 auto 20px;
+    max-width: 860px;
+    margin: 0 auto 18px;
     animation: messageIn 0.3s ease;
 }
 
@@ -349,14 +415,14 @@ a:hover {
 }
 
 .message-avatar {
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.85rem;
+    font-size: 0.72rem;
     font-weight: 700;
     margin-top: 2px;
 }
@@ -364,7 +430,7 @@ a:hover {
 .message-user .message-avatar {
     background: var(--user-bg);
     color: #fff;
-    box-shadow: 0 2px 8px rgba(204, 0, 0, 0.25);
+    box-shadow: 0 4px 10px rgba(204, 0, 0, 0.22);
 }
 
 .message-assistant .message-avatar {
@@ -395,10 +461,10 @@ a:hover {
 }
 
 .message-body {
-    padding: 14px 18px;
+    padding: 13px 16px;
     border-radius: var(--radius-lg);
-    font-size: 0.9rem;
-    line-height: 1.7;
+    font-size: 0.88rem;
+    line-height: 1.62;
     overflow-wrap: break-word;
 }
 
@@ -408,13 +474,15 @@ a:hover {
     border-bottom-left-radius: var(--radius-lg);
     border-top-left-radius: var(--radius-sm);
     white-space: pre-wrap;
+    box-shadow: 0 6px 18px rgba(163, 0, 0, 0.15);
 }
 
 .message-assistant .message-body {
-    background: #FAFAFA;
+    background: #FFFFFF;
     border: 1px solid var(--border-subtle);
     color: var(--text-primary);
     border-top-left-radius: var(--radius-sm);
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
 }
 
 /* Markdown in messages */
@@ -518,7 +586,7 @@ a:hover {
 
 /* ---------- Input Area ---------- */
 .chat-input-area {
-    padding: 0 24px var(--input-area-padding);
+    padding: 0 22px 20px;
     background: var(--bg-primary);
     border-top: 1px solid var(--border-subtle);
 }
@@ -533,11 +601,12 @@ a:hover {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding: 12px 14px;
+    padding: 12px 12px 10px;
     background: var(--bg-primary);
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-lg);
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
 }
 
 .input-wrapper:focus-within {
@@ -547,16 +616,16 @@ a:hover {
 
 /* Attach button */
 .btn-attach {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     background: #F5F5F5;
     border: 1px solid var(--border-medium);
-    border-radius: 50%;
+    border-radius: 10px;
     color: var(--text-secondary);
     cursor: pointer;
     transition: all var(--transition-fast);
@@ -566,6 +635,7 @@ a:hover {
     background: rgba(204, 0, 0, 0.08);
     border-color: var(--accent-start);
     color: var(--accent-start);
+    transform: translateY(-1px);
 }
 
 .btn-attach svg {
@@ -634,16 +704,16 @@ a:hover {
 
 /* Mic button */
 .btn-mic {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     background: #F5F5F5;
     border: 1px solid var(--border-medium);
-    border-radius: 50%;
+    border-radius: 10px;
     color: var(--text-secondary);
     cursor: pointer;
     transition: all var(--transition-fast);
@@ -653,6 +723,7 @@ a:hover {
     background: rgba(204, 0, 0, 0.08);
     border-color: var(--accent-start);
     color: var(--accent-start);
+    transform: translateY(-1px);
 }
 
 .btn-mic.is-listening {
@@ -665,6 +736,14 @@ a:hover {
 .btn-mic:disabled {
     opacity: 0.35;
     cursor: not-allowed;
+}
+
+.btn-attach:focus-visible,
+.btn-mic:focus-visible,
+.btn-send:focus-visible,
+.msg-action-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 /* Message action buttons */
@@ -687,13 +766,14 @@ a:hover {
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: all var(--transition-fast), transform var(--transition-fast);
 }
 
 .msg-action-btn:hover {
     color: var(--accent-start);
     border-color: var(--accent-start);
     background: rgba(204, 0, 0, 0.04);
+    transform: translateY(-1px);
 }
 
 .msg-action-btn.is-speaking {
@@ -711,7 +791,7 @@ a:hover {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding-top: 8px;
+    padding-top: 7px;
     margin: 0 -2px 0 -2px;
     border-top: 1px solid var(--border-subtle);
 }
@@ -720,10 +800,16 @@ a:hover {
     flex-shrink: 0;
     display: flex;
     align-items: center;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 999px;
+    padding: 4px 9px;
     position: relative;
-    pointer-events: none; /* never block dropdown interactions */
-    z-index: 0;        /* keep label below the dropdown list */
-    isolation: isolate; /* contain the filter animation stacking context */
+    pointer-events: none;
+    z-index: 0;
+    isolation: isolate;
 }
 
 .model-brain-icon {
@@ -891,8 +977,8 @@ a:hover {
     line-height: 1.5;
     resize: none;
     outline: none;
-    max-height: 160px;
-    min-height: 24px;
+    max-height: 170px;
+    min-height: 26px;
 }
 
 #message-input::placeholder {
@@ -901,15 +987,15 @@ a:hover {
 
 /* Send button */
 .btn-send {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--accent-gradient);
     border: none;
-    border-radius: 50%;
+    border-radius: 10px;
     color: #fff;
     cursor: pointer;
     transition: all var(--transition-fast);
@@ -936,9 +1022,17 @@ a:hover {
 /* Input hint */
 .input-hint {
     text-align: center;
-    font-size: 0.7rem;
-    color: var(--text-tertiary);
-    margin-top: 10px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 9px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+    }
 }
 
 
@@ -978,11 +1072,15 @@ a:hover {
     }
 
     .chat-input-area {
-        padding: 0 12px 16px;
+        padding: 0 10px 14px;
     }
 
     .chat-messages {
-        padding: 16px;
+        padding: 16px 12px;
+    }
+
+    .message {
+        margin-bottom: 14px;
     }
 }
 
@@ -1000,6 +1098,9 @@ a:hover {
 .conversation-list {
     display: flex;
     flex-direction: column;
+    margin-top: 12px;
+    overflow-y: auto;
+    min-height: 0;
 }
 
 .conv-item {
@@ -1010,12 +1111,13 @@ a:hover {
     border-radius: var(--radius-md);
     margin: 0 8px 2px;
     cursor: pointer;
-    transition: background var(--transition-fast);
+    transition: background var(--transition-fast), transform var(--transition-fast);
     min-width: 0;
 }
 
 .conv-item:hover {
     background: var(--bg-surface-hover);
+    transform: translateX(2px);
 }
 
 .conv-item.active {
@@ -1042,12 +1144,8 @@ a:hover {
     align-items: center;
     gap: 2px;
     flex-shrink: 0;
-    opacity: 0;
-    transition: opacity var(--transition-fast);
-}
-
-.conv-item:hover .conv-item-actions {
     opacity: 1;
+    transition: opacity var(--transition-fast);
 }
 
 .conv-item-btn {
@@ -1061,7 +1159,7 @@ a:hover {
     background: transparent;
     color: var(--text-tertiary);
     cursor: pointer;
-    transition: background var(--transition-fast), color var(--transition-fast);
+    transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
     padding: 0;
 }
 
@@ -1074,6 +1172,8 @@ a:hover {
     background: rgba(204, 0, 0, .1);
     color: var(--accent-start);
 }
+
+.conv-item-btn:active { transform: scale(0.94); }
 
 .conv-rename-input {
     flex: 1;
@@ -1251,7 +1351,7 @@ body.theme-dark .conv-item-rename:hover {
     cursor: pointer;
     text-align: left;
     border-radius: 0;
-    transition: background var(--transition-fast), color var(--transition-fast);
+    transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
     white-space: nowrap;
 }
 
@@ -1263,12 +1363,18 @@ body.theme-dark .conv-item-rename:hover {
 .settings-tab:hover {
     background: var(--bg-surface-hover);
     color: var(--text-primary);
+    transform: translateX(2px);
 }
 
 .settings-tab.active {
     color: var(--accent-start);
     background: rgba(204, 0, 0, .06);
     font-weight: 600;
+}
+
+.settings-tab:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px rgba(204, 0, 0, 0.25);
 }
 
 .settings-tab.active svg {
@@ -1358,7 +1464,7 @@ body.theme-dark .conv-item-rename:hover {
 .field-select:focus,
 .field-input:focus {
     border-color: var(--accent-start);
-    box-shadow: 0 0 0 3px rgba(204, 0, 0, .1);
+    box-shadow: var(--focus-ring);
 }
 
 .field-textarea {
@@ -1377,7 +1483,7 @@ body.theme-dark .conv-item-rename:hover {
 
 .field-textarea:focus {
     border-color: var(--accent-start);
-    box-shadow: 0 0 0 3px rgba(204, 0, 0, .1);
+    box-shadow: var(--focus-ring);
 }
 
 .api-key-row {
@@ -1470,10 +1576,12 @@ body.theme-dark .conv-item-rename:hover {
     font-size: 0.875rem;
     font-weight: 600;
     cursor: pointer;
-    transition: opacity var(--transition-fast);
+    transition: opacity var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.btn-primary:hover { opacity: .88; }
+.btn-primary:hover { opacity: .9; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(163, 0, 0, 0.22); }
+.btn-primary:active { transform: translateY(0); }
+.btn-primary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
 
 .btn-secondary {
@@ -1489,13 +1597,17 @@ body.theme-dark .conv-item-rename:hover {
     font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
-    transition: background var(--transition-fast), border-color var(--transition-fast);
+    transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .btn-secondary:hover {
     background: var(--bg-surface-hover);
     border-color: var(--border-medium);
+    transform: translateY(-1px);
 }
+
+.btn-secondary:active { transform: translateY(0); }
+.btn-secondary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .btn-danger {
     padding: 9px 16px;
@@ -1507,12 +1619,16 @@ body.theme-dark .conv-item-rename:hover {
     font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
-    transition: background var(--transition-fast);
+    transition: background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .btn-danger:hover {
     background: rgba(185, 28, 28, .07);
+    transform: translateY(-1px);
 }
+
+.btn-danger:active { transform: translateY(0); }
+.btn-danger:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .btn-sm {
     padding: 6px 12px;

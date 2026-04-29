@@ -83,6 +83,10 @@ resource "kubernetes_deployment_v1" "nova" {
 
       spec {
         service_account_name = kubernetes_service_account_v1.nova.metadata[0].name
+        volume {
+          name = "cloudsql"
+          empty_dir {}
+        }
 
         container {
           name              = "nova-app"
@@ -150,6 +154,38 @@ resource "kubernetes_deployment_v1" "nova" {
             period_seconds        = 30
             timeout_seconds       = 5
             failure_threshold     = 5
+          }
+
+          volume_mount {
+            name       = "cloudsql"
+            mount_path = "/cloudsql"
+          }
+        }
+
+        container {
+          name              = "cloud-sql-proxy"
+          image             = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.4"
+          image_pull_policy = "IfNotPresent"
+          args              = ["--structured-logs", "--unix-socket=/cloudsql", "${var.project_id}:${var.region}:${google_sql_database_instance.nova.name}"]
+
+          resources {
+            requests = {
+              cpu    = "100m"
+              memory = "128Mi"
+            }
+            limits = {
+              cpu    = "250m"
+              memory = "256Mi"
+            }
+          }
+
+          security_context {
+            run_as_non_root = true
+          }
+
+          volume_mount {
+            name       = "cloudsql"
+            mount_path = "/cloudsql"
           }
         }
       }

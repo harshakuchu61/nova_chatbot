@@ -65,6 +65,9 @@ a:hover { text-decoration: underline; }
     height: 44px;
     background: rgba(204,0,0,.08);
     border-radius: 12px;
+    color: #CC0000;
+    font-weight: 700;
+    font-size: 1.15rem;
 }
 
 .login-logo-text {
@@ -123,6 +126,15 @@ a:hover { text-decoration: underline; }
     cursor: pointer;
     transition: background 150ms ease, box-shadow 150ms ease;
     text-decoration: none;
+    width: 100%;
+}
+
+.oauth-btn:focus-visible,
+.btn-submit:focus-visible,
+.btn-link:focus-visible,
+.form-field input:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(204, 0, 0, 0.18);
 }
 
 .oauth-google {
@@ -152,7 +164,7 @@ a:hover { text-decoration: underline; }
     align-items: center;
     gap: 12px;
     margin: 20px 0;
-    color: #8A9099;
+    color: #6E7682;
     font-size: 0.8rem;
 }
 
@@ -168,7 +180,7 @@ a:hover { text-decoration: underline; }
 .auth-form {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 14px;
 }
 
 .form-field {
@@ -248,5 +260,12 @@ a:hover { text-decoration: underline; }
 @media (max-width: 480px) {
     .login-card {
         padding: 36px 24px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
     }
 }

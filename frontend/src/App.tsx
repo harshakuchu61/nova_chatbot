@@ -234,42 +234,66 @@ export default function App() {
     return (
       <div className="login-page">
         <div className="login-card">
-          <h2>{authMode === "login" ? "Sign in to Nova" : "Create Nova account"}</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
-            {authMode === "register" ? (
-              <input
-                className="field-input"
-                placeholder="Display name"
-                value={authDisplayName}
-                onChange={(e) => setAuthDisplayName(e.target.value)}
-              />
-            ) : null}
-            <input
-              className="field-input"
-              placeholder="Email"
-              value={authEmail}
-              onChange={(e) => setAuthEmail(e.target.value)}
-            />
-            <input
-              className="field-input"
-              type="password"
-              placeholder="Password"
-              value={authPassword}
-              onChange={(e) => setAuthPassword(e.target.value)}
-            />
-            <button className="btn-primary" onClick={() => void submitAuth()}>
-              {authMode === "login" ? "Sign in" : "Create account"}
-            </button>
-            <button className="btn-secondary" onClick={() => (window.location.href = "/auth/google/login")}>
+          <div className="login-logo">
+            <div className="login-logo-icon">✦</div>
+            <div className="login-logo-text">Nova</div>
+          </div>
+          <h2 className="login-title">{authMode === "login" ? "Sign in to Nova" : "Create Nova account"}</h2>
+          <p className="login-subtitle">
+            {authMode === "login" ? "Use your account to continue securely." : "Create your workspace and get started."}
+          </p>
+
+          {authError ? <div className="error-banner">{authError}</div> : null}
+
+          <div className="oauth-section">
+            <button className="oauth-btn oauth-google" onClick={() => (window.location.href = "/auth/google/login")}>
               Continue with Google
             </button>
-            <button className="btn-secondary" onClick={() => (window.location.href = "/auth/github/login")}>
+            <button className="oauth-btn oauth-github" onClick={() => (window.location.href = "/auth/github/login")}>
               Continue with GitHub
             </button>
-            <button className="btn-secondary" onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}>
-              {authMode === "login" ? "Need an account? Register" : "Have an account? Sign in"}
+          </div>
+
+          <div className="login-divider">or use email</div>
+
+          <div className="auth-form">
+            {authMode === "register" ? (
+              <div className="form-field">
+                <label>Display name</label>
+                <input
+                  placeholder="Display name"
+                  value={authDisplayName}
+                  onChange={(e) => setAuthDisplayName(e.target.value)}
+                />
+              </div>
+            ) : null}
+            <div className="form-field">
+              <label>Email</label>
+              <input
+                placeholder="you@company.com"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+              />
+            </div>
+            <div className="form-field">
+              <label>Password</label>
+              <input
+                type="password"
+                placeholder="Enter password"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+              />
+            </div>
+            <button className="btn-submit" onClick={() => void submitAuth()}>
+              {authMode === "login" ? "Sign in" : "Create account"}
             </button>
-            {authError ? <div className="field-hint error">{authError}</div> : null}
+          </div>
+
+          <div className="login-toggle">
+            {authMode === "login" ? "Need an account?" : "Already have an account?"}
+            <button className="btn-link" onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}>
+              {authMode === "login" ? "Register" : "Sign in"}
+            </button>
           </div>
         </div>
       </div>
@@ -284,14 +308,15 @@ export default function App() {
             <span className="logo-icon">✦</span>
             <span className="logo-text">Nova</span>
           </div>
-          <div style={{ marginTop: 12, fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-            {authUser.display_name} · {authUser.email}
+          <div className="sidebar-user-meta">
+            <span className="sidebar-user-dot">{(authUser.display_name || authUser.email || "N").charAt(0).toUpperCase()}</span>
+            <span className="sidebar-user-line">{authUser.display_name} · {authUser.email}</span>
           </div>
         </div>
         <button id="new-chat-btn" className="btn-new-chat" onClick={() => setMessages([])}>
           New Chat
         </button>
-        <div className="conversation-list" style={{ marginTop: 12, overflowY: "auto" }}>
+        <div className="conversation-list">
           {!conversations.length ? (
             <div className="conv-list-empty">No conversations yet</div>
           ) : (
@@ -302,7 +327,7 @@ export default function App() {
                 onClick={() => void loadConversation(c.id)}
               >
                 <div className="conv-item-title">{c.title}</div>
-                <div className="conv-item-actions" style={{ opacity: 1 }}>
+                <div className="conv-item-actions">
                   <button
                     className="conv-item-btn conv-item-rename"
                     onClick={(e) => {
@@ -350,6 +375,7 @@ export default function App() {
             <span className="header-badge">Vertex AI</span>
           </div>
           <div className="header-spacer" />
+          <button className="btn-subtle" onClick={() => setSettingsOpen(true)}>Settings</button>
         </header>
 
         <MessageList messages={messages} onSpeak={speak} />
