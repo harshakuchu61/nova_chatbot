@@ -247,9 +247,11 @@ export default function App() {
 
           <div className="oauth-section">
             <button className="oauth-btn oauth-google" onClick={() => (window.location.href = "/auth/google/login")}>
+              <span className="oauth-icon oauth-icon-google" aria-hidden="true">G</span>
               Continue with Google
             </button>
             <button className="oauth-btn oauth-github" onClick={() => (window.location.href = "/auth/github/login")}>
+              <span className="oauth-icon oauth-icon-github" aria-hidden="true">GH</span>
               Continue with GitHub
             </button>
           </div>
