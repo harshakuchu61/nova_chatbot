@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Composer } from "./components/Composer";
 import { MessageList } from "./components/MessageList";
 import {
@@ -41,16 +41,25 @@ type SecurityEvent = {
   success: boolean;
 };
 
+const ACTIVE_CONVERSATION_KEY = "nova_active_conversation_id";
+const THEME_KEY = "nova_theme";
+
 export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [models, setModels] = useState<ModelOption[]>([]);
-  const [selectedModel, setSelectedModel] = useState("gemini-2.0-flash");
+  const [selectedModel, setSelectedModel] = useState("gemini-2.5-flash");
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [theme, setTheme] = useState("light");
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem(THEME_KEY) || "light";
+    } catch {
+      return "light";
+    }
+  });
   const [fontSize, setFontSize] = useState("medium");
   const [sendOnEnter, setSendOnEnter] = useState(true);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
@@ -66,6 +75,13 @@ export default function App() {
   const [securityLoading, setSecurityLoading] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [conversationSearch, setConversationSearch] = useState("");
+  const [temporaryChat, setTemporaryChat] = useState(false);
+  const loadedThemeFromServer = useRef(false);
+  const hasInitializedConversationPersistence = useRef(false);
+  const autoSendTimerRef = useRef<number | null>(null);
+  const inputRef = useRef(input);
+  const onSendRef = useRef<(() => Promise<void>) | null>(null);
 
   const refreshConversations = () =>
     listConversations()
@@ -78,7 +94,7 @@ export default function App() {
         if (!r.ok) throw new Error("unauthorized");
         const me = await r.json();
         setAuthUser({ id: me.id, email: me.email, display_name: me.display_name, provider: me.provider });
-        setTheme(me.settings?.theme || "light");
+        setTheme(localStorage.getItem(THEME_KEY) || me.settings?.theme || "light");
         setFontSize(me.settings?.font_size || "medium");
         setSendOnEnter(me.settings?.send_on_enter !== false);
         return true;
@@ -88,15 +104,20 @@ export default function App() {
         await fetchModels()
           .then((m) => {
             setModels(m.models || []);
-            setSelectedModel(m.default_model || "gemini-2.0-flash");
+            setSelectedModel(m.default_model || "gemini-2.5-flash");
           })
           .catch(() => {
             setModels([
-              { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash — fast, economical" },
+              { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash — fast, economical" },
               { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro — most capable" }
             ]);
           });
         await refreshConversations();
+        const savedConversationId = localStorage.getItem(ACTIVE_CONVERSATION_KEY);
+        if (savedConversationId) {
+          await loadConversation(savedConversationId);
+        }
+        loadedThemeFromServer.current = true;
       })
       .catch(() => setAuthUser(null))
       .finally(() => setAuthLoading(false));
@@ -104,12 +125,34 @@ export default function App() {
 
   useEffect(() => {
     document.body.classList.toggle("theme-dark", theme === "dark");
+    localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (!authUser || !loadedThemeFromServer.current) return;
+    void patchSettings({ theme }).catch(() => undefined);
+  }, [theme, authUser]);
 
   useEffect(() => {
     const map: Record<string, string> = { small: "87.5%", medium: "100%", large: "112.5%" };
     document.documentElement.style.fontSize = map[fontSize] || "100%";
   }, [fontSize]);
+
+  useEffect(() => {
+    inputRef.current = input;
+  }, [input]);
+
+  useEffect(() => {
+    if (!hasInitializedConversationPersistence.current) {
+      hasInitializedConversationPersistence.current = true;
+      return;
+    }
+    if (activeConversationId) {
+      localStorage.setItem(ACTIVE_CONVERSATION_KEY, activeConversationId);
+    } else {
+      localStorage.removeItem(ACTIVE_CONVERSATION_KEY);
+    }
+  }, [activeConversationId]);
 
   const speaking = useMemo(() => window.speechSynthesis, []);
   const speak = (text: string) => {
@@ -118,10 +161,6 @@ export default function App() {
     const u = new SpeechSynthesisUtterance(text);
     speaking.speak(u);
   };
-
-  const voice = useVoiceInput((text) => {
-    setInput((prev) => (prev ? `${prev} ${text}` : text));
-  });
 
   const submitAuth = async () => {
     setAuthError("");
@@ -147,7 +186,7 @@ export default function App() {
         .catch(() => undefined);
       await fetchModels().then((m) => {
         setModels(m.models || []);
-        setSelectedModel(m.default_model || "gemini-2.0-flash");
+        setSelectedModel(m.default_model || "gemini-2.5-flash");
       });
       await refreshConversations();
     } catch (e: any) {
@@ -175,15 +214,18 @@ export default function App() {
       message: text,
       model: selectedModel,
       attachments: payloadAttachments,
-      conversationId: activeConversationId,
+      conversationId: temporaryChat ? null : activeConversationId,
+      temporary: temporaryChat,
       onChunk: (chunk) => {
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + chunk } : m))
         );
       },
       onDone: (data) => {
-        if (data?.conversation_id) setActiveConversationId(data.conversation_id);
-        void refreshConversations();
+        if (!temporaryChat) {
+          if (data?.conversation_id) setActiveConversationId(data.conversation_id);
+          void refreshConversations();
+        }
       },
       onError: (err) => {
         setMessages((prev) =>
@@ -197,7 +239,37 @@ export default function App() {
     });
   };
 
+  useEffect(() => {
+    onSendRef.current = onSend;
+  }, [onSend]);
+
+  useEffect(() => {
+    return () => {
+      if (autoSendTimerRef.current !== null) {
+        window.clearTimeout(autoSendTimerRef.current);
+      }
+    };
+  }, []);
+
+  const voice = useVoiceInput({
+    onFinalText: (text) => {
+      setInput((prev) => (prev ? `${prev} ${text}` : text));
+    },
+    onSilence: () => {
+      if (autoSendTimerRef.current !== null) {
+        window.clearTimeout(autoSendTimerRef.current);
+      }
+      autoSendTimerRef.current = window.setTimeout(() => {
+        if (!inputRef.current.trim()) return;
+        void onSendRef.current?.();
+      }, 3500);
+    },
+    silenceMs: 2000,
+  });
+
   const loadConversation = async (id: string) => {
+    setActiveConversationId(id);
+    setTemporaryChat(false);
     try {
       const conv = await getConversation(id);
       const next: ChatMessage[] = (conv.messages || []).map((m: any) => ({
@@ -205,10 +277,21 @@ export default function App() {
         role: m.role,
         content: m.content
       }));
-      setMessages(next);
-      setActiveConversationId(id);
+      setMessages(
+        next.length
+          ? next
+          : [
+              {
+                id: crypto.randomUUID(),
+                role: "assistant",
+                content:
+                  "This chat has no saved messages yet. Previous requests may have failed before the conversation was stored."
+              }
+            ]
+      );
+      setConversationSearch("");
     } catch {
-      // ignore
+      setActiveConversationId(null);
     }
   };
 
@@ -224,6 +307,14 @@ export default function App() {
     } finally {
       setSecurityLoading(false);
     }
+  };
+
+  const goHome = () => {
+    setSettingsOpen(false);
+    setTemporaryChat(false);
+    setConversationSearch("");
+    setActiveConversationId(null);
+    setMessages([]);
   };
 
   if (authLoading) {
@@ -316,27 +407,58 @@ export default function App() {
     );
   }
 
+  const sidebarShortName =
+    (authUser.display_name || authUser.email || "User").trim().split(/\s+/)[0] || "User";
+  const filteredConversations = conversations.filter((c) =>
+    c.title.toLowerCase().includes(conversationSearch.trim().toLowerCase())
+  );
+
   return (
     <div className="app-container">
       <aside id="sidebar" className="sidebar">
         <div className="sidebar-header">
-          <div className="logo">
+          <button className="logo logo-button" onClick={goHome} type="button" title="Go to home">
             <span className="logo-icon">✦</span>
             <span className="logo-text">Nova</span>
-          </div>
-          <div className="sidebar-user-meta">
-            <span className="sidebar-user-dot">{(authUser.display_name || authUser.email || "N").charAt(0).toUpperCase()}</span>
-            <span className="sidebar-user-line">{authUser.display_name} · {authUser.email}</span>
-          </div>
+          </button>
         </div>
-        <button id="new-chat-btn" className="btn-new-chat" onClick={() => setMessages([])}>
-          New Chat
-        </button>
+        <div className="sidebar-quick-controls">
+          <input
+            className="sidebar-search"
+            placeholder="Search chats"
+            value={conversationSearch}
+            onChange={(e) => setConversationSearch(e.target.value)}
+          />
+        </div>
+        <div className="sidebar-modes">
+          <button
+            className="sidebar-mode-btn"
+            onClick={() => {
+              setTemporaryChat(false);
+              setMessages([]);
+              setActiveConversationId(null);
+            }}
+          >
+            <span className="mode-icon" aria-hidden="true">✎</span>
+            New chat
+          </button>
+          <button
+            className={`sidebar-mode-btn ${temporaryChat ? "active" : ""}`}
+            onClick={() => {
+              setTemporaryChat(true);
+              setMessages([]);
+              setActiveConversationId(null);
+            }}
+          >
+            <span className="mode-icon" aria-hidden="true">◔</span>
+            Temporary chat
+          </button>
+        </div>
         <div className="conversation-list">
-          {!conversations.length ? (
+          {!filteredConversations.length ? (
             <div className="conv-list-empty">No conversations yet</div>
           ) : (
-            conversations.map((c) => (
+            filteredConversations.map((c) => (
               <div
                 key={c.id}
                 className={`conv-item ${activeConversationId === c.id ? "active" : ""}`}
@@ -377,24 +499,23 @@ export default function App() {
           )}
         </div>
         <div className="sidebar-footer">
-          <button className="btn-subtle" onClick={() => setSettingsOpen(true)}>
-            Settings
+          <div className="sidebar-profile" title={authUser.display_name || authUser.email}>
+            <span className="sidebar-profile-avatar">{sidebarShortName.charAt(0).toUpperCase()}</span>
+            <span className="sidebar-profile-name">{sidebarShortName}</span>
+          </div>
+          <button className="btn-subtle sidebar-settings-link" onClick={() => setSettingsOpen(true)} title="Settings" aria-label="Settings">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.63l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.3 7.3 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54a7.3 7.3 0 0 0-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.85a.5.5 0 0 0 .12.63l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.63l1.92 3.32c.13.22.39.31.6.22l2.39-.96c.5.39 1.04.7 1.63.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.55 1.63-.94l2.39.96c.22.09.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.63l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"
+              />
+            </svg>
           </button>
         </div>
       </aside>
 
       <main className="chat-main">
-        <header className="chat-header">
-          <div className="header-title">
-            <span className="header-icon">✦</span>
-            <h1>Nova</h1>
-            <span className="header-badge">Vertex AI</span>
-          </div>
-          <div className="header-spacer" />
-          <button className="btn-subtle" onClick={() => setSettingsOpen(true)}>Settings</button>
-        </header>
-
-        <MessageList messages={messages} onSpeak={speak} />
+        <MessageList messages={messages} onSpeak={speak} activeConversationId={activeConversationId} />
         <Composer
           input={input}
           setInput={setInput}

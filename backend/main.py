@@ -15,6 +15,7 @@ import json
 import os
 import uuid
 import secrets
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from datetime import datetime, timezone
@@ -56,13 +57,25 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
 PROJECT_ID = (os.getenv("GCP_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or "").strip()
-VERTEX_LOCATION = (os.getenv("VERTEX_LOCATION") or "us-central1").strip()
-DEFAULT_MODEL = (os.getenv("VERTEX_DEFAULT_MODEL") or "gemini-2.0-flash").strip()
+VERTEX_LOCATION = (os.getenv("VERTEX_LOCATION") or "global").strip()
+GEMINI_API_KEY = (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
+DEFAULT_MODEL = (os.getenv("VERTEX_DEFAULT_MODEL") or "gemini-2.5-flash").strip()
 ALLOWED_MODELS = [
-    {"id": "gemini-2.0-flash", "label": "Gemini 2.0 Flash — fast, economical"},
+    {"id": "gemini-2.5-flash", "label": "Gemini 2.5 Flash — fast, economical"},
     {"id": "gemini-2.5-pro", "label": "Gemini 2.5 Pro — most capable"},
 ]
 ALLOWED_MODEL_IDS = {m["id"] for m in ALLOWED_MODELS}
+LEGACY_MODEL_MAP = {
+    "gemini-2.0-flash": "gemini-2.5-flash",
+    "gemini-1.5-flash": "gemini-2.5-flash",
+    "gemini-1.5-pro": "gemini-2.5-pro",
+    "gemini-1.5-flash-002": "gemini-2.5-flash",
+    "gemini-1.5-pro-002": "gemini-2.5-pro",
+}
+if DEFAULT_MODEL in LEGACY_MODEL_MAP:
+    DEFAULT_MODEL = LEGACY_MODEL_MAP[DEFAULT_MODEL]
+if DEFAULT_MODEL not in ALLOWED_MODEL_IDS:
+    DEFAULT_MODEL = "gemini-2.5-flash"
 MAX_ATTACHMENTS = 6
 MAX_TEXT_ATTACHMENT_CHARS = 200_000
 MAX_PDF_BYTES = 16 * 1024 * 1024
@@ -151,6 +164,14 @@ class LoginEventRow(Base):
     success: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+@dataclass(frozen=True)
+class CurrentUser:
+    id: str
+    email: str
+    display_name: str
+    provider: str
+
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Nova API (FastAPI + Vertex AI)")
@@ -190,6 +211,7 @@ class ChatRequest(BaseModel):
     model: str | None = None
     attachments: list[Attachment] = Field(default_factory=list)
     conversation_id: str | None = None
+    temporary: bool = False
 
 
 class SettingsPatch(BaseModel):
@@ -213,10 +235,12 @@ class AuthPayload(BaseModel):
 
 
 def _client() -> genai.Client:
+    if GEMINI_API_KEY:
+        return genai.Client(api_key=GEMINI_API_KEY)
     if not PROJECT_ID:
         raise HTTPException(
             status_code=500,
-            detail="Vertex AI project is not configured. Set GCP_PROJECT or GOOGLE_CLOUD_PROJECT.",
+            detail="Configure GOOGLE_API_KEY (or GEMINI_API_KEY), or set GCP_PROJECT/GOOGLE_CLOUD_PROJECT for Vertex AI.",
         )
     return genai.Client(vertexai=True, project=PROJECT_ID, location=VERTEX_LOCATION)
 
@@ -373,7 +397,7 @@ def _oauth_redirect_uri(request: Request, path: str) -> str:
     return f"{base}{path}"
 
 
-def _get_current_user(request: Request) -> UserRow | None:
+def _get_current_user(request: Request) -> CurrentUser | None:
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if not token:
         return None
@@ -385,10 +409,18 @@ def _get_current_user(request: Request) -> UserRow | None:
     if not uid:
         return None
     with SessionLocal() as db:
-        return db.get(UserRow, uid)
+        row = db.get(UserRow, uid)
+        if not row:
+            return None
+        return CurrentUser(
+            id=row.id,
+            email=row.email,
+            display_name=row.display_name,
+            provider=row.provider,
+        )
 
 
-def _require_user(request: Request) -> UserRow:
+def _require_user(request: Request) -> CurrentUser:
     user = _get_current_user(request)
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required.")
@@ -885,60 +917,79 @@ def delete_account_data(request: Request) -> JSONResponse:
 @app.post("/api/chat")
 def api_chat(payload: ChatRequest, request: Request) -> StreamingResponse:
     user = _require_user(request)
-    model = (payload.model or DEFAULT_MODEL).strip()
+    model = LEGACY_MODEL_MAP.get((payload.model or DEFAULT_MODEL).strip(), (payload.model or DEFAULT_MODEL).strip())
     if model not in ALLOWED_MODEL_IDS:
         model = DEFAULT_MODEL
 
     user_text = (payload.message or "").strip()
-    conversation_id = (payload.conversation_id or "").strip() or str(uuid.uuid4())
-    with SessionLocal() as db:
-        conv = db.get(ConversationRow, conversation_id)
-        if not conv:
-            conv = ConversationRow(
-                id=conversation_id,
-                user_id=user.id,
-                title=_new_conversation_title(user_text),
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
-            )
-            db.add(conv)
-            db.commit()
-            db.refresh(conv)
-        elif conv.user_id != user.id:
-            raise HTTPException(status_code=404, detail="Conversation not found.")
+    is_temporary = bool(payload.temporary)
+    conversation_id = (payload.conversation_id or "").strip() if not is_temporary else ""
+    if not is_temporary:
+        conversation_id = conversation_id or str(uuid.uuid4())
+        with SessionLocal() as db:
+            conv = db.get(ConversationRow, conversation_id)
+            if not conv:
+                conv = ConversationRow(
+                    id=conversation_id,
+                    user_id=user.id,
+                    title=_new_conversation_title(user_text),
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                )
+                db.add(conv)
+                db.commit()
+                db.refresh(conv)
+            elif conv.user_id != user.id:
+                raise HTTPException(status_code=404, detail="Conversation not found.")
 
     extra_text, image_parts = _normalize_attachments(payload.attachments)
     composed_text = (user_text + extra_text).strip() or "Summarize the attached context."
 
-    text_part = types.Part.from_text(composed_text)
+    text_part = types.Part.from_text(text=composed_text)
     parts: list[types.Part] = [text_part] + image_parts
     content = types.Content(role="user", parts=parts)
 
     def event_stream():
         full_text = ""
         try:
-            stream = _client().models.generate_content_stream(
-                model=model,
-                contents=[content],
-                config=types.GenerateContentConfig(temperature=0.3),
-            )
+            # Keep an explicit client reference alive for the full stream lifecycle.
+            client = _client()
+            try:
+                stream = client.models.generate_content_stream(
+                    model=model,
+                    contents=[content],
+                    config=types.GenerateContentConfig(temperature=0.3),
+                )
+            except Exception as model_error:
+                # Fallback for projects/regions without access to the requested model ID.
+                if "NOT_FOUND" in str(model_error) or "not found" in str(model_error).lower():
+                    stream = client.models.generate_content_stream(
+                        model="gemini-2.5-flash",
+                        contents=[content],
+                        config=types.GenerateContentConfig(temperature=0.3),
+                    )
+                else:
+                    raise
             for chunk in stream:
                 piece = chunk.text or ""
                 if piece:
                     full_text += piece
                     yield f"data: {json.dumps({'chunk': piece})}\n\n"
-            with SessionLocal() as db:
-                conv = db.get(ConversationRow, conversation_id)
-                if conv and conv.user_id == user.id:
-                    db.add(MessageRow(conversation_id=conversation_id, role="user", content=user_text))
-                    db.add(MessageRow(conversation_id=conversation_id, role="assistant", content=full_text))
-                    conv.updated_at = datetime.utcnow()
-                    db.add(conv)
-                    db.commit()
-                    title = conv.title
-                else:
-                    title = _new_conversation_title(user_text)
-            yield f"data: {json.dumps({'done': True, 'conversation_id': conversation_id, 'title': title})}\n\n"
+            if is_temporary:
+                yield f"data: {json.dumps({'done': True, 'temporary': True})}\n\n"
+            else:
+                with SessionLocal() as db:
+                    conv = db.get(ConversationRow, conversation_id)
+                    if conv and conv.user_id == user.id:
+                        db.add(MessageRow(conversation_id=conversation_id, role="user", content=user_text))
+                        db.add(MessageRow(conversation_id=conversation_id, role="assistant", content=full_text))
+                        conv.updated_at = datetime.utcnow()
+                        db.add(conv)
+                        db.commit()
+                        title = conv.title
+                    else:
+                        title = _new_conversation_title(user_text)
+                yield f"data: {json.dumps({'done': True, 'conversation_id': conversation_id, 'title': title})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 

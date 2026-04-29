@@ -92,15 +92,16 @@ export async function streamChat(params: {
   model: string;
   attachments: Attachment[];
   conversationId?: string | null;
+  temporary?: boolean;
   onChunk: (chunk: string) => void;
   onDone: (data?: { conversation_id?: string; title?: string }) => void;
   onError: (err: string) => void;
 }) {
-  const { message, model, attachments, conversationId, onChunk, onDone, onError } = params;
+  const { message, model, attachments, conversationId, temporary, onChunk, onDone, onError } = params;
   const r = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, model, attachments, conversation_id: conversationId })
+    body: JSON.stringify({ message, model, attachments, conversation_id: conversationId, temporary: !!temporary })
   });
   if (!r.ok || !r.body) throw new Error(`Chat failed (${r.status})`);
 
