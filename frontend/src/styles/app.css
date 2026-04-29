@@ -721,6 +721,7 @@ a:hover {
     display: flex;
     align-items: center;
     position: relative;
+    pointer-events: none; /* never block dropdown interactions */
     z-index: 0;        /* keep label below the dropdown list */
     isolation: isolate; /* contain the filter animation stacking context */
 }

@@ -1,5 +1,6 @@
 locals {
-  # Cloud SQL connection string for Cloud Run via Unix socket
+  # Cloud SQL connection string using unix-socket style host.
+  # FastAPI runtime uses Cloud SQL Python Connector for /cloudsql/... hosts.
   db_url = "postgresql+psycopg2://${var.sql_user}:${random_password.db_password.result}@/${var.sql_database}?host=/cloudsql/${var.project_id}:${var.region}:${google_sql_database_instance.nova.name}"
 }
 
@@ -30,24 +31,34 @@ resource "google_secret_manager_secret_version" "db_url" {
   depends_on  = [google_sql_database_instance.nova]
 }
 
-# ── OPENAI_API_KEY (optional) ─────────────────────────────────────
-resource "google_secret_manager_secret" "openai_key" {
-  count     = var.openai_api_key != "" ? 1 : 0
+# ── VERTEX_LOCATION ────────────────────────────────────────────────
+resource "google_secret_manager_secret" "vertex_location" {
   project   = var.project_id
-  secret_id = "OPENAI_API_KEY"
+  secret_id = "VERTEX_LOCATION"
   replication { auto {} }
   depends_on = [google_project_service.apis]
 }
 
-resource "google_secret_manager_secret_version" "openai_key" {
-  count       = var.openai_api_key != "" ? 1 : 0
-  secret      = google_secret_manager_secret.openai_key[0].id
-  secret_data = var.openai_api_key
+resource "google_secret_manager_secret_version" "vertex_location" {
+  secret      = google_secret_manager_secret.vertex_location.id
+  secret_data = var.vertex_location
 }
 
-# ── GOOGLE OAuth (optional) ───────────────────────────────────────
+# ── VERTEX_DEFAULT_MODEL ──────────────────────────────────────────
+resource "google_secret_manager_secret" "vertex_default_model" {
+  project   = var.project_id
+  secret_id = "VERTEX_DEFAULT_MODEL"
+  replication { auto {} }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "vertex_default_model" {
+  secret      = google_secret_manager_secret.vertex_default_model.id
+  secret_data = var.vertex_default_model
+}
+
+# ── GOOGLE OAuth ──────────────────────────────────────────────────
 resource "google_secret_manager_secret" "google_client_id" {
-  count     = var.google_client_id != "" ? 1 : 0
   project   = var.project_id
   secret_id = "GOOGLE_CLIENT_ID"
   replication { auto {} }
@@ -55,13 +66,11 @@ resource "google_secret_manager_secret" "google_client_id" {
 }
 
 resource "google_secret_manager_secret_version" "google_client_id" {
-  count       = var.google_client_id != "" ? 1 : 0
-  secret      = google_secret_manager_secret.google_client_id[0].id
+  secret      = google_secret_manager_secret.google_client_id.id
   secret_data = var.google_client_id
 }
 
 resource "google_secret_manager_secret" "google_client_secret" {
-  count     = var.google_client_secret != "" ? 1 : 0
   project   = var.project_id
   secret_id = "GOOGLE_CLIENT_SECRET"
   replication { auto {} }
@@ -69,14 +78,12 @@ resource "google_secret_manager_secret" "google_client_secret" {
 }
 
 resource "google_secret_manager_secret_version" "google_client_secret" {
-  count       = var.google_client_secret != "" ? 1 : 0
-  secret      = google_secret_manager_secret.google_client_secret[0].id
+  secret      = google_secret_manager_secret.google_client_secret.id
   secret_data = var.google_client_secret
 }
 
-# ── GITHUB OAuth (optional) ───────────────────────────────────────
+# ── GITHUB OAuth ──────────────────────────────────────────────────
 resource "google_secret_manager_secret" "github_client_id" {
-  count     = var.github_client_id != "" ? 1 : 0
   project   = var.project_id
   secret_id = "GITHUB_CLIENT_ID"
   replication { auto {} }
@@ -84,13 +91,11 @@ resource "google_secret_manager_secret" "github_client_id" {
 }
 
 resource "google_secret_manager_secret_version" "github_client_id" {
-  count       = var.github_client_id != "" ? 1 : 0
-  secret      = google_secret_manager_secret.github_client_id[0].id
+  secret      = google_secret_manager_secret.github_client_id.id
   secret_data = var.github_client_id
 }
 
 resource "google_secret_manager_secret" "github_client_secret" {
-  count     = var.github_client_secret != "" ? 1 : 0
   project   = var.project_id
   secret_id = "GITHUB_CLIENT_SECRET"
   replication { auto {} }
@@ -98,7 +103,6 @@ resource "google_secret_manager_secret" "github_client_secret" {
 }
 
 resource "google_secret_manager_secret_version" "github_client_secret" {
-  count       = var.github_client_secret != "" ? 1 : 0
-  secret      = google_secret_manager_secret.github_client_secret[0].id
+  secret      = google_secret_manager_secret.github_client_secret.id
   secret_data = var.github_client_secret
 }

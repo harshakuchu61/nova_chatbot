@@ -20,6 +20,7 @@ Write-Host "`n=== Nova — GKE Setup ===" -ForegroundColor Cyan
 Write-Host "`n[1/9] Enabling GCP APIs..." -ForegroundColor Yellow
 gcloud services enable `
     container.googleapis.com `
+    aiplatform.googleapis.com `
     secretmanager.googleapis.com `
     sqladmin.googleapis.com `
     artifactregistry.googleapis.com `
@@ -59,7 +60,8 @@ if (-not $existing) {
 foreach ($role in @(
     "roles/secretmanager.secretAccessor",
     "roles/cloudsql.client",
-    "roles/artifactregistry.reader"
+    "roles/artifactregistry.reader",
+    "roles/aiplatform.user"
 )) {
     gcloud projects add-iam-policy-binding $PROJECT_ID `
         --member="serviceAccount:$SA_EMAIL" `

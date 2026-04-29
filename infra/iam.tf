@@ -7,10 +7,9 @@ resource "google_service_account" "github_actions" {
 
 locals {
   github_sa_roles = toset([
-    "roles/run.admin",                 # deploy Cloud Run
+    "roles/container.admin",           # deploy/update GKE workloads
     "roles/artifactregistry.writer",   # push Docker images
-    "roles/iam.serviceAccountUser",    # act-as Cloud Run SA
-    "roles/storage.admin",             # Cloud Build staging bucket
+    "roles/storage.admin",             # optional cache/staging access
   ])
 }
 
@@ -19,25 +18,6 @@ resource "google_project_iam_member" "github_actions" {
   project  = var.project_id
   role     = each.value
   member   = "serviceAccount:${google_service_account.github_actions.email}"
-}
-
-# ── Cloud Run Runtime Service Account ─────────────────────────────
-resource "google_service_account" "cloud_run" {
-  project      = var.project_id
-  account_id   = "nova-cloudrun-sa"
-  display_name = "Nova Cloud Run Runtime"
-}
-
-resource "google_project_iam_member" "cloud_run_sql" {
-  project = var.project_id
-  role    = "roles/cloudsql.client"
-  member  = "serviceAccount:${google_service_account.cloud_run.email}"
-}
-
-resource "google_project_iam_member" "cloud_run_secrets" {
-  project = var.project_id
-  role    = "roles/secretmanager.secretAccessor"
-  member  = "serviceAccount:${google_service_account.cloud_run.email}"
 }
 
 # ── Workload Identity Federation (keyless GitHub Actions auth) ─────

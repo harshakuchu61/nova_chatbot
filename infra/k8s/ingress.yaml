@@ -8,15 +8,32 @@ metadata:
   labels:
     app.kubernetes.io/name: nova
   annotations:
+    kubernetes.io/ingress.class: "gce"
     kubernetes.io/ingress.global-static-ip-name: nova-ip
     networking.gke.io/managed-certificates: nova-cert
-    # Redirect plain HTTP → HTTPS
-    kubernetes.io/ingress.allow-http: "false"
-    # Use the GCE ingress class (external HTTP(S) LB)
-    kubernetes.io/ingress.class: "gce"
+    # Keep HTTP on while certificate is provisioning.
+    # After cert is Active, set this to "false".
+    kubernetes.io/ingress.allow-http: "true"
 spec:
-  defaultBackend:
-    service:
-      name: nova-service
-      port:
-        number: 80
+  ingressClassName: gce
+  rules:
+  - host: novagptapp.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nova-service
+            port:
+              number: 80
+  - host: www.novagptapp.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nova-service
+            port:
+              number: 80

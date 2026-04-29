@@ -1,5 +1,5 @@
 # =============================================================
-#  Nova - One-Time GCP Infrastructure Setup
+#  Nova - One-Time GCP Infrastructure Setup (legacy Cloud Run helper)
 #
 #  What it does:
 #    1. Enables required APIs
@@ -64,7 +64,7 @@ Info "Key stored (truncated): $($secretKey.Substring(0,8))..."
 # ── OAuth credentials (optional) ──────────────────────────────────
 Step "OAuth credentials (press Enter to skip each)"
 Write-Host "  Google Console: console.cloud.google.com -> APIs -> Credentials" -ForegroundColor Gray
-Write-Host "  Redirect URI: https://nova-chatbot-787410280026.us-central1.run.app/google/authorized" -ForegroundColor Gray
+Write-Host "  Redirect URI: https://<your-domain>/auth/google/callback" -ForegroundColor Gray
 
 $ggId  = Read-Host "  Google Client ID (blank to skip)"
 $ggSec = Read-Host "  Google Client Secret (blank to skip)"
@@ -78,7 +78,7 @@ if ($ggId -and $ggSec) {
 
 Write-Host ""
 Write-Host "  GitHub: github.com/settings/developers -> New OAuth App" -ForegroundColor Gray
-Write-Host "  Callback URL: https://nova-chatbot-787410280026.us-central1.run.app/github/authorized" -ForegroundColor Gray
+Write-Host "  Callback URL: https://<your-domain>/auth/github/callback" -ForegroundColor Gray
 
 $ghId  = Read-Host "  GitHub Client ID (blank to skip)"
 $ghSec = Read-Host "  GitHub Client Secret (blank to skip)"

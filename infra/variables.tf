@@ -10,9 +10,45 @@ variable "region" {
 }
 
 variable "service_name" {
-  description = "Cloud Run service name"
+  description = "Kubernetes application name"
   type        = string
-  default     = "nova-chatbot"
+  default     = "nova-app"
+}
+
+variable "cluster_name" {
+  description = "GKE Autopilot cluster name"
+  type        = string
+  default     = "nova-cluster"
+}
+
+variable "namespace" {
+  description = "Kubernetes namespace for app resources"
+  type        = string
+  default     = "nova"
+}
+
+variable "domain_name" {
+  description = "Primary domain for ingress and OAuth callbacks (e.g., novagptapp.com)"
+  type        = string
+  default     = "novagptapp.com"
+}
+
+variable "create_dns_records" {
+  description = "Whether Terraform should create apex/www A records"
+  type        = bool
+  default     = true
+}
+
+variable "dns_zone_name" {
+  description = "Cloud DNS managed zone name for domain_name"
+  type        = string
+  default     = "novagptapp-com"
+}
+
+variable "enable_https_redirect" {
+  description = "When true, disables plain HTTP on Ingress (set true after cert is active)"
+  type        = bool
+  default     = false
 }
 
 variable "github_owner" {
@@ -46,12 +82,35 @@ variable "sql_user" {
   default     = "nova_user"
 }
 
-# ── Optional secrets (leave empty to skip) ───────────────────────
-variable "openai_api_key" {
-  description = "OpenAI API key — stored in Secret Manager if provided"
+variable "db_deletion_protection" {
+  description = "Protect Cloud SQL from accidental deletion"
+  type        = bool
+  default     = false
+}
+
+variable "min_replicas" {
+  description = "Minimum app replicas in Kubernetes"
+  type        = number
+  default     = 3
+}
+
+variable "max_replicas" {
+  description = "Maximum app replicas in Kubernetes"
+  type        = number
+  default     = 10
+}
+
+# ── Vertex AI runtime config ──────────────────────────────────────
+variable "vertex_location" {
+  description = "Vertex AI region for model inference"
   type        = string
-  sensitive   = true
-  default     = ""
+  default     = "us-central1"
+}
+
+variable "vertex_default_model" {
+  description = "Default Vertex Gemini model ID"
+  type        = string
+  default     = "gemini-2.0-flash"
 }
 
 variable "google_client_id" {

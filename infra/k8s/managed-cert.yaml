@@ -8,6 +8,5 @@ metadata:
   namespace: nova
 spec:
   domains:
-  # Replace with your domain (e.g. nova.yourdomain.com)
-  # Until then, access the app via the raw IP address over HTTP.
-  - nova.yourdomain.com
+  - novagptapp.com
+  - www.novagptapp.com

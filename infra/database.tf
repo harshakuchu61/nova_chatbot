@@ -4,6 +4,8 @@ resource "google_sql_database_instance" "nova" {
   database_version = "POSTGRES_15"
   region           = var.region
 
+  deletion_protection = var.db_deletion_protection
+
   settings {
     tier              = var.db_tier
     availability_type = "ZONAL"
@@ -12,8 +14,9 @@ resource "google_sql_database_instance" "nova" {
     disk_type         = "PD_SSD"
 
     backup_configuration {
-      enabled    = true
-      start_time = "03:00"
+      enabled                        = true
+      point_in_time_recovery_enabled = true
+      start_time                     = "03:00"
     }
 
     ip_configuration {

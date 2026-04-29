@@ -3,10 +3,10 @@
 #  Edit the values in this file once; all scripts source it.
 # =============================================================
 
-# ── REQUIRED — set this to your real GCP Project ID ──────────
+# ── REQUIRED — set this to your GCP Project ID ──────────
 $PROJECT_ID   = "nova-chatbot-493921"
 
-# ── GCP topology (match your original Phase 6-7 deploy) ───────
+# ── GCP topology ───────
 $REGION       = "us-central1"
 $SERVICE_NAME = "nova-chatbot"
 $REPO_NAME    = "nova-repo"

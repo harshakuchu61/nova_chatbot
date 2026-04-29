@@ -6,19 +6,30 @@ region     = "us-central1"
 
 github_owner = "harshakuchu61"
 github_repo  = "nova_chatbot"
+cluster_name = "nova-cluster"
+namespace    = "nova"
+service_name = "nova-app"
+domain_name  = "novagptapp.com"
+dns_zone_name = "novagptapp-com"
+create_dns_records = true
+enable_https_redirect = false
 
 # Cloud SQL tier
 # db-f1-micro = ~$7/month  (dev / personal)
 # db-g1-small = ~$25/month (small prod)
 db_tier = "db-f1-micro"
+db_deletion_protection = false
+min_replicas = 3
+max_replicas = 10
 
-# Optional — provide your OpenAI key to store it in Secret Manager
-# openai_api_key = "sk-..."
+# Vertex runtime defaults
+vertex_location = "us-central1"
+vertex_default_model = "gemini-2.0-flash"
 
-# Optional — Google OAuth (from console.cloud.google.com/apis/credentials)
-# google_client_id     = "....apps.googleusercontent.com"
-# google_client_secret = "GOCSPX-..."
+# Google OAuth (from console.cloud.google.com/apis/credentials)
+google_client_id     = "....apps.googleusercontent.com"
+google_client_secret = "GOCSPX-..."
 
-# Optional — GitHub OAuth (from github.com/settings/developers)
-# github_client_id     = "Ov23li..."
-# github_client_secret = "..."
+# GitHub OAuth (from github.com/settings/developers)
+github_client_id     = "Ov23li..."
+github_client_secret = "..."

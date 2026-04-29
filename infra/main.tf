@@ -26,6 +26,10 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.6"
     }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.30"
+    }
   }
 
   # GCS backend keeps state safe across destroy/apply cycles.
@@ -43,7 +47,15 @@ provider "google" {
   region  = var.region
 }
 
-# Generates a 64-char random Flask SECRET_KEY (stored in Secret Manager)
+data "google_client_config" "current" {}
+
+provider "kubernetes" {
+  host                   = "https://${google_container_cluster.nova.endpoint}"
+  token                  = data.google_client_config.current.access_token
+  cluster_ca_certificate = base64decode(google_container_cluster.nova.master_auth[0].cluster_ca_certificate)
+}
+
+# Generates a 64-char app SECRET_KEY (stored in Secret Manager)
 resource "random_password" "secret_key" {
   length  = 64
   special = false

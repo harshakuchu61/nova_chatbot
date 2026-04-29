@@ -1,5 +1,5 @@
 # =============================================================
-#  Nova - Build & Deploy to Cloud Run
+#  Nova - Build & Deploy to Cloud Run (legacy helper)
 #
 #  Usage:
 #    powershell -ExecutionPolicy Bypass -File .\scripts\deploy.ps1
@@ -127,9 +127,9 @@ Write-Host "============================================================" -Foreg
 Write-Host "  Deploy complete!" -ForegroundColor Green
 Write-Host "  Live URL: $serviceUrl" -ForegroundColor Green
 if (Secret-Exists $GG_ID_SECRET) {
-    Write-Host "  Google redirect URI: ${serviceUrl}/google/authorized" -ForegroundColor Yellow
+    Write-Host "  Google redirect URI: ${serviceUrl}/auth/google/callback" -ForegroundColor Yellow
 }
 if (Secret-Exists $GH_ID_SECRET) {
-    Write-Host "  GitHub callback URL: ${serviceUrl}/github/authorized" -ForegroundColor Yellow
+    Write-Host "  GitHub callback URL: ${serviceUrl}/auth/github/callback" -ForegroundColor Yellow
 }
 Write-Host "============================================================" -ForegroundColor Green

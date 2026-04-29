@@ -1,9 +1,13 @@
 locals {
   required_apis = toset([
-    "run.googleapis.com",
+    "container.googleapis.com",
+    "aiplatform.googleapis.com",
     "sqladmin.googleapis.com",
     "secretmanager.googleapis.com",
     "artifactregistry.googleapis.com",
+    "compute.googleapis.com",
+    "dns.googleapis.com",
+    "domains.googleapis.com",
     "iam.googleapis.com",
     "iamcredentials.googleapis.com",
     "cloudresourcemanager.googleapis.com",

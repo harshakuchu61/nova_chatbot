@@ -38,33 +38,50 @@ spec:
         env:
         - name: PORT
           value: "8080"
+        - name: GOOGLE_CLOUD_PROJECT
+          value: "nova-chatbot-493921"
+        - name: VERTEX_LOCATION
+          value: "us-central1"
+        - name: VERTEX_DEFAULT_MODEL
+          value: "gemini-2.0-flash"
         # Tells the app it is running in GKE (not Cloud Run)
         - name: DEPLOYMENT_ENV
           value: "gke"
 
         resources:
           requests:
-            cpu: "250m"
-            memory: "512Mi"
+            cpu: "300m"
+            memory: "384Mi"
           limits:
-            cpu: "1000m"
+            cpu: "2000m"
             memory: "1Gi"
+
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          # Give the app more time during cold boot / DB reconnects.
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 18
 
         readinessProbe:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 15
+          initialDelaySeconds: 20
           periodSeconds: 10
-          failureThreshold: 3
+          timeoutSeconds: 5
+          failureThreshold: 5
 
         livenessProbe:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 30
+          initialDelaySeconds: 60
           periodSeconds: 30
-          failureThreshold: 3
+          timeoutSeconds: 5
+          failureThreshold: 5
 
         lifecycle:
           preStop:
@@ -72,11 +89,11 @@ spec:
               # Allows in-flight requests to finish before pod is removed
               command: ["/bin/sh", "-c", "sleep 5"]
 
-      # Spread pods across zones for HA
+      # Keep placement flexible under quota pressure to avoid pending pods.
       topologySpreadConstraints:
-      - maxSkew: 1
+      - maxSkew: 2
         topologyKey: topology.kubernetes.io/zone
-        whenUnsatisfiable: DoNotSchedule
+        whenUnsatisfiable: ScheduleAnyway
         labelSelector:
           matchLabels:
             app: nova-app
