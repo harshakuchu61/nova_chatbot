@@ -1,8 +1,3 @@
-/* =========================================================
-   Nova — Login Page
-   Matches the main app's CVS Health white/red design system.
-   ========================================================= */
-
 *, *::before, *::after {
     margin: 0;
     padding: 0;
@@ -12,10 +7,13 @@
 html, body {
     height: 100%;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: #F5F5F5;
     color: #1A1A1A;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
+    background:
+        radial-gradient(120% 80% at 50% -10%, rgba(204, 0, 0, 0.07), transparent 55%),
+        radial-gradient(90% 60% at 100% 100%, rgba(163, 0, 0, 0.05), transparent 50%),
+        linear-gradient(180deg, #fafbfc 0%, #f0f2f5 100%);
 }
 
 a {
@@ -24,31 +22,43 @@ a {
 }
 a:hover { text-decoration: underline; }
 
-/* ── Page layout ──────────────────────────────────────── */
 .login-page {
+    position: relative;
+    isolation: isolate;
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 24px 16px;
+    overflow: hidden;
+    animation: loginSceneIn 420ms cubic-bezier(0.22, 0.88, 0.34, 1);
     background:
-        radial-gradient(ellipse 70% 50% at 10% 0%, rgba(204,0,0,.06) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 40% at 90% 100%, rgba(204,0,0,.05) 0%, transparent 60%),
-        #F5F5F5;
+        radial-gradient(ellipse 70% 50% at 10% 0%, rgba(204, 0, 0, 0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 90% 100%, rgba(204, 0, 0, 0.05) 0%, transparent 60%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0%, rgba(245, 246, 250, 0.95) 100%);
+    backdrop-filter: blur(20px) saturate(1.25);
+    -webkit-backdrop-filter: blur(20px) saturate(1.25);
 }
 
-/* ── Card ─────────────────────────────────────────────── */
 .login-card {
-    background: #FFFFFF;
-    border: 1px solid #E8EAED;
-    border-radius: 20px;
-    padding: 48px 44px;
+    position: relative;
+    z-index: 1;
     width: 100%;
     max-width: 440px;
-    box-shadow: 0 8px 32px rgba(0,0,0,.10);
+    padding: 48px 44px;
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.62));
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.9) inset,
+        0 0 0 1px rgba(204, 0, 0, 0.08),
+        0 28px 56px rgba(26, 26, 26, 0.12),
+        0 12px 28px rgba(204, 0, 0, 0.06);
+    backdrop-filter: blur(22px) saturate(1.45);
+    -webkit-backdrop-filter: blur(22px) saturate(1.45);
+    animation: cardRise 420ms cubic-bezier(0.2, 0.88, 0.32, 1);
 }
 
-/* ── Logo ─────────────────────────────────────────────── */
 .login-logo {
     display: flex;
     align-items: center;
@@ -77,7 +87,6 @@ a:hover { text-decoration: underline; }
     letter-spacing: -0.5px;
 }
 
-/* ── Headings ─────────────────────────────────────────── */
 .login-title {
     font-size: 1.45rem;
     font-weight: 700;
@@ -93,11 +102,12 @@ a:hover { text-decoration: underline; }
     margin-bottom: 28px;
 }
 
-/* ── Error banner ─────────────────────────────────────── */
 .error-banner {
-    background: #FFF0F0;
-    border: 1px solid rgba(204,0,0,.25);
+    background: linear-gradient(180deg, rgba(255, 240, 240, 0.95), rgba(255, 232, 232, 0.88));
+    border: 1px solid rgba(204, 0, 0, 0.28);
     border-radius: 10px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     padding: 10px 14px;
     font-size: 0.875rem;
     color: #A30000;
@@ -105,7 +115,6 @@ a:hover { text-decoration: underline; }
     text-align: center;
 }
 
-/* ── OAuth buttons ────────────────────────────────────── */
 .oauth-section {
     display: flex;
     flex-direction: column;
@@ -119,12 +128,12 @@ a:hover { text-decoration: underline; }
     justify-content: center;
     gap: 10px;
     padding: 11px 16px;
-    border-radius: 10px;
+    border-radius: 12px;
     font-size: 0.9rem;
     font-weight: 500;
     font-family: inherit;
     cursor: pointer;
-    transition: background 150ms ease, box-shadow 150ms ease;
+    transition: background 150ms ease, box-shadow 150ms ease, transform 160ms ease, border-color 150ms ease;
     text-decoration: none;
     width: 100%;
 }
@@ -160,27 +169,33 @@ a:hover { text-decoration: underline; }
 }
 
 .oauth-google {
-    background: #FFFFFF;
-    border: 1.5px solid #CED3D9;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(248, 249, 252, 0.85));
+    border: 1.5px solid rgba(204, 0, 0, 0.14);
     color: #1A1A1A;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 6px 16px rgba(12, 18, 28, 0.06);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
 }
 .oauth-google:hover {
-    background: #F7F8F9;
-    border-color: #B0B8C4;
+    background: linear-gradient(180deg, #ffffff, rgba(245, 246, 250, 0.95));
+    border-color: rgba(204, 0, 0, 0.22);
     text-decoration: none;
 }
 
 .oauth-github {
-    background: #24292E;
-    border: 1.5px solid #24292E;
+    background: linear-gradient(180deg, rgba(36, 41, 46, 0.98), rgba(26, 30, 34, 0.96));
+    border: 1.5px solid rgba(255, 255, 255, 0.12);
     color: #FFFFFF;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 8px 20px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
 }
 .oauth-github:hover {
-    background: #1A1E22;
+    background: linear-gradient(180deg, #2c3238, #1a1e22);
+    border-color: rgba(255, 255, 255, 0.18);
     text-decoration: none;
 }
 
-/* ── Divider ──────────────────────────────────────────── */
 .login-divider {
     display: flex;
     align-items: center;
@@ -198,7 +213,6 @@ a:hover { text-decoration: underline; }
     background: #E8EAED;
 }
 
-/* ── Form ─────────────────────────────────────────────── */
 .auth-form {
     display: flex;
     flex-direction: column;
@@ -219,14 +233,17 @@ a:hover { text-decoration: underline; }
 
 .form-field input {
     padding: 11px 14px;
-    border: 1.5px solid #E8EAED;
-    border-radius: 10px;
+    border: 1.5px solid rgba(204, 0, 0, 0.12);
+    border-radius: 12px;
     font-family: inherit;
     font-size: 0.9rem;
     color: #1A1A1A;
-    background: #FFFFFF;
+    background: rgba(255, 255, 255, 0.55);
     outline: none;
-    transition: border-color 150ms ease, box-shadow 150ms ease;
+    transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 .form-field input:focus {
@@ -238,7 +255,6 @@ a:hover { text-decoration: underline; }
     color: #B0B8C4;
 }
 
-/* ── Submit button ────────────────────────────────────── */
 .btn-submit {
     padding: 12px;
     background: linear-gradient(135deg, #CC0000, #A30000);
@@ -257,7 +273,6 @@ a:hover { text-decoration: underline; }
 .btn-submit:active { transform: scale(.98); }
 .btn-submit:disabled { opacity: .5; cursor: not-allowed; }
 
-/* ── Toggle ───────────────────────────────────────────── */
 .login-toggle {
     text-align: center;
     margin-top: 20px;
@@ -278,7 +293,6 @@ a:hover { text-decoration: underline; }
 }
 .btn-link:hover { text-decoration: underline; }
 
-/* ── Responsive ───────────────────────────────────────── */
 @media (max-width: 480px) {
     .login-card {
         padding: 36px 24px;
@@ -289,5 +303,111 @@ a:hover { text-decoration: underline; }
     *, *::before, *::after {
         animation: none !important;
         transition: none !important;
+    }
+
+    .login-page {
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+
+    .login-card,
+    .oauth-google,
+    .oauth-github,
+    .form-field input,
+    .error-banner {
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+}
+
+.login-page::before,
+.login-page::after {
+    content: "";
+    position: absolute;
+    width: 420px;
+    height: 420px;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(56px);
+    opacity: 0.5;
+    z-index: 0;
+}
+
+.login-page::before {
+    background: radial-gradient(circle, rgba(204, 0, 0, 0.24), transparent 65%);
+    top: -120px;
+    left: -120px;
+    animation: floatGlow 9s ease-in-out infinite;
+}
+
+.login-page::after {
+    background: radial-gradient(circle, rgba(163, 0, 0, 0.18), transparent 66%);
+    bottom: -150px;
+    right: -120px;
+    animation: floatGlow 11s ease-in-out infinite reverse;
+}
+
+.login-logo-icon {
+    box-shadow: 0 10px 25px rgba(204, 0, 0, 0.18);
+    animation: iconBreathe 3s ease-in-out infinite;
+}
+
+.oauth-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 18px rgba(12, 18, 28, 0.12);
+}
+
+.oauth-btn:hover .oauth-icon {
+    transform: scale(1.07);
+}
+
+.oauth-icon {
+    transition: transform 160ms ease;
+}
+
+.btn-submit {
+    box-shadow:
+        0 12px 24px rgba(163, 0, 0, 0.24),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.btn-submit:hover {
+    transform: translateY(-1px);
+    filter: saturate(1.04);
+}
+
+.form-field input:hover {
+    border-color: #d2d8df;
+}
+
+@keyframes cardRise {
+    0% {
+        opacity: 0;
+        transform: translateY(14px) scale(0.985);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes floatGlow {
+    0%, 100% { transform: translateY(0) translateX(0); }
+    50% { transform: translateY(16px) translateX(12px); }
+}
+
+@keyframes iconBreathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@keyframes loginSceneIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }

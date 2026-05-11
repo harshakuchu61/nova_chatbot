@@ -1,4 +1,4 @@
-﻿# Nova AI (FastAPI + React + Vertex AI)
+# Nova AI (FastAPI + React + Vertex AI)
 
 Nova is a cloud-native AI assistant for GCP, deployed on GKE.
 
@@ -80,6 +80,13 @@ Cloud examples:
 - Docker build is multi-stage (`frontend` build + Python runtime).
 - GKE manifests are in `infra/k8s/`.
 - Preferred provisioning path is `scripts/setup-gke.ps1` + Terraform under `infra/`.
+
+## Desktop App (optional)
+
+A lightweight cross-platform Tauri shell lives in [`desktop/`](desktop/). It opens
+`https://novagptapp.com` in a small native window so users can use Nova as a
+sticky-note-style assistant on Windows, macOS, or Linux without changing the
+existing web/backend stack. See [`desktop/README.md`](desktop/README.md).
 
 ## Legacy Scripts
 

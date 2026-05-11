@@ -1,0 +1,17 @@
+{
+  "name": "nova-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lightweight Nova desktop shell (Tauri) that points at novagptapp.com",
+  "type": "module",
+  "scripts": {
+    "icons": "node scripts/generate-icons.mjs",
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
+    "sharp": "^0.33.5"
+  }
+}

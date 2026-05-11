@@ -3,7 +3,8 @@ import { Fragment, useEffect, useRef } from "react";
 
 type Props = {
   messages: ChatMessage[];
-  onSpeak: (text: string) => void;
+  onSpeak: (text: string, messageId: string) => void;
+  speakingMessageId?: string | null;
   activeConversationId?: string | null;
 };
 
@@ -185,7 +186,7 @@ function renderMessageBody(content: string) {
   return blocks.length ? blocks : <p>{content}</p>;
 }
 
-export function MessageList({ messages, onSpeak, activeConversationId }: Props) {
+export function MessageList({ messages, onSpeak, speakingMessageId, activeConversationId }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -210,10 +211,11 @@ export function MessageList({ messages, onSpeak, activeConversationId }: Props) 
         </div>
       ) : null}
 
-      {messages.map((m) => (
+      {messages.map((m, idx) => (
         <div
           key={m.id}
           className={`message ${m.role === "error" ? "message-assistant message-error" : `message-${m.role}`}`}
+          style={{ animationDelay: `${Math.min(idx * 35, 260)}ms` }}
         >
           <div className="message-avatar">{m.role === "user" ? "" : "✦"}</div>
           <div className="message-content">
@@ -225,13 +227,18 @@ export function MessageList({ messages, onSpeak, activeConversationId }: Props) 
                 m.content.trim() ? (
                   renderMessageBody(m.content)
                 ) : (
-                  <div className="thinking-row" aria-live="polite">
-                    <span>Thinking</span>
-                    <span className="thinking-dots">
-                      <span className="dot" />
-                      <span className="dot" />
-                      <span className="dot" />
-                    </span>
+                  <div className="assistant-loading-shell" aria-live="polite">
+                    <div className="assistant-skeleton-line w-90" />
+                    <div className="assistant-skeleton-line w-70" />
+                    <div className="assistant-skeleton-line w-82" />
+                    <div className="thinking-row">
+                      <span>Thinking</span>
+                      <span className="thinking-dots">
+                        <span className="dot" />
+                        <span className="dot" />
+                        <span className="dot" />
+                      </span>
+                    </div>
                   </div>
                 )
               ) : (
@@ -254,10 +261,10 @@ export function MessageList({ messages, onSpeak, activeConversationId }: Props) 
                   </svg>
                 </button>
                 <button
-                  className="msg-action-btn icon-only"
-                  title="Read aloud"
-                  aria-label="Read response aloud"
-                  onClick={() => onSpeak(m.content)}
+                  className={`msg-action-btn icon-only ${speakingMessageId === m.id ? "is-speaking" : ""}`}
+                  title={speakingMessageId === m.id ? "Stop reading" : "Read aloud"}
+                  aria-label={speakingMessageId === m.id ? "Stop reading response" : "Read response aloud"}
+                  onClick={() => onSpeak(m.content, m.id)}
                 >
                   <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
                     <path

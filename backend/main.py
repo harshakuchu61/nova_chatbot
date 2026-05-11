@@ -59,11 +59,44 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 PROJECT_ID = (os.getenv("GCP_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or "").strip()
 VERTEX_LOCATION = (os.getenv("VERTEX_LOCATION") or "global").strip()
 GEMINI_API_KEY = (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
-DEFAULT_MODEL = (os.getenv("VERTEX_DEFAULT_MODEL") or "gemini-2.5-flash").strip()
-ALLOWED_MODELS = [
+
+
+def _parse_allowed_models(env_value: str | None) -> list[dict[str, str]]:
+    """
+    Parse a simple config string into a list of allowed models.
+
+    Format (per line, separated by ';'):
+        id|Human label
+
+    Example:
+        gemini-2.5-flash|Gemini 2.5 Flash — fast, economical;
+        gemini-2.5-pro|Gemini 2.5 Pro — most capable
+    """
+    if not env_value:
+        return []
+    models: list[dict[str, str]] = []
+    for raw_entry in env_value.split(";"):
+        entry = raw_entry.strip()
+        if not entry:
+            continue
+        parts = entry.split("|", 1)
+        model_id = parts[0].strip()
+        if not model_id:
+            continue
+        label = parts[1].strip() if len(parts) > 1 else model_id
+        models.append({"id": model_id, "label": label})
+    return models
+
+
+_STATIC_DEFAULT_MODEL = "gemini-2.5-flash"
+_STATIC_ALLOWED_MODELS = [
     {"id": "gemini-2.5-flash", "label": "Gemini 2.5 Flash — fast, economical"},
     {"id": "gemini-2.5-pro", "label": "Gemini 2.5 Pro — most capable"},
 ]
+
+DEFAULT_MODEL = (os.getenv("VERTEX_DEFAULT_MODEL") or _STATIC_DEFAULT_MODEL).strip()
+_ENV_MODELS_RAW = os.getenv("NOVA_MODELS", "").strip()
+ALLOWED_MODELS = _parse_allowed_models(_ENV_MODELS_RAW) or _STATIC_ALLOWED_MODELS
 ALLOWED_MODEL_IDS = {m["id"] for m in ALLOWED_MODELS}
 LEGACY_MODEL_MAP = {
     "gemini-2.0-flash": "gemini-2.5-flash",
@@ -75,7 +108,9 @@ LEGACY_MODEL_MAP = {
 if DEFAULT_MODEL in LEGACY_MODEL_MAP:
     DEFAULT_MODEL = LEGACY_MODEL_MAP[DEFAULT_MODEL]
 if DEFAULT_MODEL not in ALLOWED_MODEL_IDS:
-    DEFAULT_MODEL = "gemini-2.5-flash"
+    # Fallback to the first configured / allowed model so deployments
+    # can change models purely via environment without code edits.
+    DEFAULT_MODEL = next(iter(ALLOWED_MODEL_IDS)) if ALLOWED_MODEL_IDS else _STATIC_DEFAULT_MODEL
 MAX_ATTACHMENTS = 6
 MAX_TEXT_ATTACHMENT_CHARS = 200_000
 MAX_PDF_BYTES = 16 * 1024 * 1024

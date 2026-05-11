@@ -44,6 +44,21 @@ type SecurityEvent = {
 const ACTIVE_CONVERSATION_KEY = "nova_active_conversation_id";
 const THEME_KEY = "nova_theme";
 
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function getVisibleFocusables(container: HTMLElement): HTMLElement[] {
+  const nodes = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+  return nodes.filter((el) => {
+    if (el.getAttribute("aria-hidden") === "true") return false;
+    const style = window.getComputedStyle(el);
+    if (style.visibility === "hidden" || style.display === "none") return false;
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 1 && rect.height < 1) return false;
+    return true;
+  });
+}
+
 export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -77,11 +92,15 @@ export default function App() {
   const [newPassword, setNewPassword] = useState("");
   const [conversationSearch, setConversationSearch] = useState("");
   const [temporaryChat, setTemporaryChat] = useState(false);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const loadedThemeFromServer = useRef(false);
   const hasInitializedConversationPersistence = useRef(false);
   const autoSendTimerRef = useRef<number | null>(null);
   const inputRef = useRef(input);
   const onSendRef = useRef<(() => Promise<void>) | null>(null);
+  const settingsTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const settingsDrawerRef = useRef<HTMLElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   const refreshConversations = () =>
     listConversations()
@@ -143,6 +162,74 @@ export default function App() {
   }, [input]);
 
   useEffect(() => {
+    const root = document.documentElement;
+    if (!settingsOpen) {
+      root.classList.remove("settings-modal-open");
+      document.body.classList.remove("settings-modal-open");
+      setSettingsStatus("");
+      return;
+    }
+    root.classList.add("settings-modal-open");
+    document.body.classList.add("settings-modal-open");
+
+    returnFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : settingsTriggerRef.current;
+
+    let raf = 0;
+    raf = requestAnimationFrame(() => {
+      const drawer = settingsDrawerRef.current;
+      if (!drawer) return;
+      const generalTab = drawer.querySelector<HTMLElement>(".settings-nav .settings-tab");
+      if (generalTab) {
+        generalTab.focus();
+        return;
+      }
+      const list = getVisibleFocusables(drawer);
+      if (list.length) list[0].focus();
+    });
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setSettingsOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const drawer = settingsDrawerRef.current;
+      if (!drawer) return;
+      const list = getVisibleFocusables(drawer);
+      if (!list.length) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("keydown", onKey);
+      root.classList.remove("settings-modal-open");
+      document.body.classList.remove("settings-modal-open");
+      const restore = returnFocusRef.current;
+      returnFocusRef.current = null;
+      const target = restore ?? settingsTriggerRef.current;
+      if (target && target.isConnected && typeof target.focus === "function") {
+        target.focus({ preventScroll: true });
+      }
+    };
+  }, [settingsOpen]);
+
+  useEffect(() => {
     if (!hasInitializedConversationPersistence.current) {
       hasInitializedConversationPersistence.current = true;
       return;
@@ -155,10 +242,18 @@ export default function App() {
   }, [activeConversationId]);
 
   const speaking = useMemo(() => window.speechSynthesis, []);
-  const speak = (text: string) => {
+  const speak = (text: string, messageId: string) => {
     if (!speaking) return;
+    if (speakingMessageId === messageId) {
+      speaking.cancel();
+      setSpeakingMessageId(null);
+      return;
+    }
     speaking.cancel();
     const u = new SpeechSynthesisUtterance(text);
+    u.onend = () => setSpeakingMessageId((prev) => (prev === messageId ? null : prev));
+    u.onerror = () => setSpeakingMessageId((prev) => (prev === messageId ? null : prev));
+    setSpeakingMessageId(messageId);
     speaking.speak(u);
   };
 
@@ -318,7 +413,16 @@ export default function App() {
   };
 
   if (authLoading) {
-    return <div style={{ padding: 24, fontFamily: "Inter, sans-serif" }}>Loading Nova…</div>;
+    return (
+      <div className="app-loading-screen" aria-live="polite">
+        <div className="app-loading-card">
+          <div className="assistant-skeleton-line w-80" />
+          <div className="assistant-skeleton-line w-60" />
+          <div className="assistant-skeleton-line w-90" />
+          <p className="app-loading-label">Loading Nova...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!authUser) {
@@ -422,37 +526,42 @@ export default function App() {
             <span className="logo-text">Nova</span>
           </button>
         </div>
-        <div className="sidebar-quick-controls">
-          <input
-            className="sidebar-search"
-            placeholder="Search chats"
-            value={conversationSearch}
-            onChange={(e) => setConversationSearch(e.target.value)}
-          />
-        </div>
-        <div className="sidebar-modes">
-          <button
-            className="sidebar-mode-btn"
-            onClick={() => {
-              setTemporaryChat(false);
-              setMessages([]);
-              setActiveConversationId(null);
-            }}
-          >
-            <span className="mode-icon" aria-hidden="true">✎</span>
-            New chat
-          </button>
-          <button
-            className={`sidebar-mode-btn ${temporaryChat ? "active" : ""}`}
-            onClick={() => {
-              setTemporaryChat(true);
-              setMessages([]);
-              setActiveConversationId(null);
-            }}
-          >
-            <span className="mode-icon" aria-hidden="true">◔</span>
-            Temporary chat
-          </button>
+        <div className="sidebar-top-actions">
+          <div className="sidebar-quick-controls">
+            <input
+              className="sidebar-search"
+              placeholder="Search chats"
+              value={conversationSearch}
+              onChange={(e) => setConversationSearch(e.target.value)}
+              aria-label="Search chats"
+            />
+          </div>
+          <div className="sidebar-modes">
+            <button
+              type="button"
+              className="sidebar-mode-btn sidebar-mode-btn--new"
+              onClick={() => {
+                setTemporaryChat(false);
+                setMessages([]);
+                setActiveConversationId(null);
+              }}
+            >
+              <span className="mode-icon" aria-hidden="true">✎</span>
+              New chat
+            </button>
+            <button
+              type="button"
+              className={`sidebar-mode-btn sidebar-mode-btn--temporary ${temporaryChat ? "active" : ""}`}
+              onClick={() => {
+                setTemporaryChat(true);
+                setMessages([]);
+                setActiveConversationId(null);
+              }}
+            >
+              <span className="mode-icon" aria-hidden="true">◔</span>
+              Temporary chat
+            </button>
+          </div>
         </div>
         <div className="conversation-list">
           {!filteredConversations.length ? (
@@ -503,7 +612,14 @@ export default function App() {
             <span className="sidebar-profile-avatar">{sidebarShortName.charAt(0).toUpperCase()}</span>
             <span className="sidebar-profile-name">{sidebarShortName}</span>
           </div>
-          <button className="btn-subtle sidebar-settings-link" onClick={() => setSettingsOpen(true)} title="Settings" aria-label="Settings">
+          <button
+            ref={settingsTriggerRef}
+            type="button"
+            className="btn-subtle sidebar-settings-link"
+            onClick={() => setSettingsOpen(true)}
+            title="Settings"
+            aria-label="Settings"
+          >
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
               <path
                 fill="currentColor"
@@ -515,7 +631,12 @@ export default function App() {
       </aside>
 
       <main className="chat-main">
-        <MessageList messages={messages} onSpeak={speak} activeConversationId={activeConversationId} />
+        <MessageList
+          messages={messages}
+          onSpeak={speak}
+          speakingMessageId={speakingMessageId}
+          activeConversationId={activeConversationId}
+        />
         <Composer
           input={input}
           setInput={setInput}
@@ -533,21 +654,38 @@ export default function App() {
       </main>
 
       {!settingsOpen ? null : (
-        <>
-          <div className="settings-overlay" onClick={() => setSettingsOpen(false)} />
-          <aside className="settings-drawer">
+        <div className="settings-layer" role="presentation">
+          <div
+            className="settings-overlay"
+            onClick={() => setSettingsOpen(false)}
+            aria-hidden="true"
+          />
+          <aside
+            ref={settingsDrawerRef}
+            className="settings-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-dialog-title"
+          >
             <div className="settings-header">
-              <h2 className="settings-title">Settings</h2>
-              <button className="btn-icon settings-close-btn" onClick={() => setSettingsOpen(false)}>
+              <h2 className="settings-title" id="settings-dialog-title">
+                Settings
+              </h2>
+              <button type="button" className="btn-icon settings-close-btn" onClick={() => setSettingsOpen(false)}>
                 ×
               </button>
             </div>
             <div className="settings-content">
               <nav className="settings-nav">
-                <button className={`settings-tab ${settingsTab === "general" ? "active" : ""}`} onClick={() => setSettingsTab("general")}>
+                <button
+                  type="button"
+                  className={`settings-tab ${settingsTab === "general" ? "active" : ""}`}
+                  onClick={() => setSettingsTab("general")}
+                >
                   <span>General</span>
                 </button>
                 <button
+                  type="button"
                   className={`settings-tab ${settingsTab === "security" ? "active" : ""}`}
                   onClick={() => {
                     setSettingsTab("security");
@@ -556,10 +694,18 @@ export default function App() {
                 >
                   <span>Security</span>
                 </button>
-                <button className={`settings-tab ${settingsTab === "data" ? "active" : ""}`} onClick={() => setSettingsTab("data")}>
+                <button
+                  type="button"
+                  className={`settings-tab ${settingsTab === "data" ? "active" : ""}`}
+                  onClick={() => setSettingsTab("data")}
+                >
                   <span>Data</span>
                 </button>
-                <button className={`settings-tab ${settingsTab === "account" ? "active" : ""}`} onClick={() => setSettingsTab("account")}>
+                <button
+                  type="button"
+                  className={`settings-tab ${settingsTab === "account" ? "active" : ""}`}
+                  onClick={() => setSettingsTab("account")}
+                >
                   <span>Account</span>
                 </button>
               </nav>
@@ -592,6 +738,7 @@ export default function App() {
                 </div>
                 <div className="settings-field">
                   <button
+                    type="button"
                     className="btn-primary"
                     onClick={async () => {
                       setSettingsStatus("");
@@ -609,6 +756,7 @@ export default function App() {
                 </div>
                 <div className="settings-field">
                   <button
+                    type="button"
                     className="btn-secondary"
                     onClick={() => {
                       void fetch("/auth/logout", { method: "POST" }).finally(() => {
@@ -643,6 +791,7 @@ export default function App() {
                     </div>
                     <div className="settings-field">
                       <button
+                        type="button"
                         className="btn-primary"
                         onClick={() =>
                           void changePassword(currentPassword, newPassword)
@@ -664,7 +813,10 @@ export default function App() {
                 <div className="settings-field">
                   <label className="field-label">Recent login activity</label>
                   {securityLoading ? (
-                    <div className="field-hint">Loading…</div>
+                    <div className="settings-loading-block" aria-live="polite">
+                      <div className="assistant-skeleton-line w-80" />
+                      <div className="assistant-skeleton-line w-65" />
+                    </div>
                   ) : !securityEvents.length ? (
                     <div className="field-hint">No recent events.</div>
                   ) : (
@@ -683,6 +835,7 @@ export default function App() {
                 <h3 className="panel-heading">Data Controls</h3>
                 <div className="settings-field">
                   <button
+                    type="button"
                     className="btn-secondary"
                     onClick={() =>
                       void exportUserData().then((data) => {
@@ -702,6 +855,7 @@ export default function App() {
                 </div>
                 <div className="settings-field">
                   <button
+                    type="button"
                     className="btn-danger"
                     onClick={() =>
                       void deleteAllConversations().then(() => {
@@ -729,6 +883,7 @@ export default function App() {
                 </div>
                 <div className="settings-field">
                   <button
+                    type="button"
                     className="btn-danger"
                     onClick={() => {
                       if (!window.confirm("Delete account and all data permanently?")) return;
@@ -746,7 +901,7 @@ export default function App() {
               </div>
             </div>
           </aside>
-        </>
+        </div>
       )}
     </div>
   );

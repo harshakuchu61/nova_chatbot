@@ -98,29 +98,50 @@ export async function streamChat(params: {
   onError: (err: string) => void;
 }) {
   const { message, model, attachments, conversationId, temporary, onChunk, onDone, onError } = params;
-  const r = await fetch("/api/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, model, attachments, conversation_id: conversationId, temporary: !!temporary })
+  const requestBody = JSON.stringify({
+    message,
+    model,
+    attachments,
+    conversation_id: conversationId,
+    temporary: !!temporary
   });
-  if (!r.ok || !r.body) throw new Error(`Chat failed (${r.status})`);
 
-  const reader = r.body.getReader();
-  const decoder = new TextDecoder();
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
-    for (const line of chunk.split("\n")) {
-      if (!line.startsWith("data: ")) continue;
-      try {
-        const payload = JSON.parse(line.slice(6));
-        if (payload.error) onError(String(payload.error));
-        else if (payload.chunk) onChunk(String(payload.chunk));
-        else if (payload.done) onDone(payload);
-      } catch {
-        // ignore malformed partial chunks
+  const attemptStream = async () => {
+    const r = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: requestBody
+    });
+    if (!r.ok || !r.body) throw new Error(`Chat failed (${r.status})`);
+
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      for (const line of chunk.split("\n")) {
+        if (!line.startsWith("data: ")) continue;
+        try {
+          const payload = JSON.parse(line.slice(6));
+          if (payload.error) onError(String(payload.error));
+          else if (payload.chunk) onChunk(String(payload.chunk));
+          else if (payload.done) onDone(payload);
+        } catch {
+          // ignore malformed partial chunks
+        }
       }
     }
+  };
+
+  try {
+    await attemptStream();
+  } catch (err: any) {
+    const messageText = String(err?.message || "");
+    const isTransientNetworkError =
+      err instanceof TypeError || /network|fetch|failed to fetch|load failed/i.test(messageText);
+    if (!isTransientNetworkError) throw err;
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await attemptStream();
   }
 }
